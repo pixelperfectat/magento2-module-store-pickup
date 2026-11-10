@@ -12,6 +12,7 @@ use Magento\Framework\Model\ResourceModel\AbstractResource;
 use Magento\Framework\Registry;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Framework\Serialize\SerializerInterface;
+use Magento\Store\Model\StoreManagerInterface;
 use PixelPerfect\StorePickup\Api\Service\LocationUsageInterface;
 use PixelPerfect\StorePickup\Api\Service\PickupMethodResolverInterface;
 
@@ -35,6 +36,7 @@ class Locations extends ArraySerialized
      * @param PickupMethodResolverInterface $resolver
      * @param LocationUsageInterface $usage
      * @param SerializerInterface $oldValueSerializer
+     * @param StoreManagerInterface $storeManager
      * @param AbstractResource|null $resource
      * @param AbstractDb|null $resourceCollection
      * @param array<string, mixed> $data
@@ -48,6 +50,7 @@ class Locations extends ArraySerialized
         private readonly PickupMethodResolverInterface $resolver,
         private readonly LocationUsageInterface $usage,
         private readonly SerializerInterface $oldValueSerializer,
+        private readonly StoreManagerInterface $storeManager,
         ?AbstractResource $resource = null,
         ?AbstractDb $resourceCollection = null,
         array $data = [],
@@ -80,6 +83,25 @@ class Locations extends ArraySerialized
         }
 
         return parent::beforeSave();
+    }
+
+    /**
+     * Reject reverting a website or store override to "Use default" when that drops a code that is still in use.
+     *
+     * The admin deletes the config row for an inherited field and never calls beforeSave, so the codes that the
+     * deleted override held are compared with the codes the parent scope serves after the delete.
+     *
+     * @return $this
+     * @throws LocalizedException
+     */
+    public function beforeDelete()
+    {
+        $parent = $this->parentRows();
+        if ($parent !== null) {
+            $this->guardRemovedCodes($this->codes($this->oldRows()), $this->codes($parent));
+        }
+
+        return parent::beforeDelete();
     }
 
     /**
@@ -126,9 +148,21 @@ class Locations extends ArraySerialized
      */
     private function guardCodesInUse(array $rows): void
     {
-        $kept = $this->codes($rows);
-        foreach ($this->codes($this->oldRows()) as $code) {
-            if (!in_array($code, $kept, true) && $this->usage->isInUse($code)) {
+        $this->guardRemovedCodes($this->codes($this->oldRows()), $this->codes($rows));
+    }
+
+    /**
+     * Throw for the first code that is in $before, missing from $after and in use.
+     *
+     * @param list<string> $before
+     * @param list<string> $after
+     * @return void
+     * @throws LocalizedException
+     */
+    private function guardRemovedCodes(array $before, array $after): void
+    {
+        foreach ($before as $code) {
+            if (!in_array($code, $after, true) && $this->usage->isInUse($code)) {
                 throw new LocalizedException(
                     __(
                         'Pickup location "%1" is used by open carts or orders. '
@@ -141,18 +175,51 @@ class Locations extends ArraySerialized
     }
 
     /**
+     * The rows the parent scope serves (website for a store, default for a website); null at default scope.
+     *
+     * @return array<array-key, mixed>|null
+     */
+    private function parentRows(): ?array
+    {
+        $scope = $this->getScope();
+        if ($scope === 'websites') {
+            $value = $this->_config->getValue($this->getPath(), 'default');
+        } elseif ($scope === 'stores') {
+            $websiteId = (int) $this->storeManager->getStore($this->getScopeCode())->getWebsiteId();
+            $websiteCode = $this->storeManager->getWebsite($websiteId)->getCode();
+            $value = $this->_config->getValue($this->getPath(), 'websites', $websiteCode);
+        } else {
+            return null;
+        }
+
+        $stored = is_array($value) ? $this->oldValueSerializer->serialize($value) : (string) $value;
+
+        return $this->unserializeRows($stored);
+    }
+
+    /**
      * The rows saved before this change; empty when there are none or they cannot be read.
      *
      * @return array<array-key, mixed>
      */
     private function oldRows(): array
     {
-        $old = $this->getOldValue();
-        if ($old === '') {
+        return $this->unserializeRows($this->getOldValue());
+    }
+
+    /**
+     * Rows of a stored value; empty when it is empty or cannot be read.
+     *
+     * @param string $stored
+     * @return array<array-key, mixed>
+     */
+    private function unserializeRows(string $stored): array
+    {
+        if ($stored === '') {
             return [];
         }
         try {
-            $rows = $this->oldValueSerializer->unserialize($old);
+            $rows = $this->oldValueSerializer->unserialize($stored);
         } catch (\InvalidArgumentException) {
             return [];
         }

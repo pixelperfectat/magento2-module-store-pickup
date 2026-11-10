@@ -179,4 +179,62 @@ class LocationCodeInUseTest extends TestCase
 
         self::assertFalse($objectManager->get(LocationUsageInterface::class)->isInUse('second'));
     }
+
+    /**
+     * Website override that adds the code "extra" on top of the default locations.
+     */
+    private const string WEBSITE_LOCATIONS = '['
+        . '{"code":"main","name":"Main Store","street":"1 Example Street","postcode":"1010","city":"Vienna",'
+        . '"country_id":"AT","price":"","sort_order":"10","active":"1"},'
+        . '{"code":"extra","name":"Extra Store","street":"3 Example Street","postcode":"4020","city":"Linz",'
+        . '"country_id":"AT","price":"","sort_order":"30","active":"1"}]';
+
+    private function websiteBackend(string $scope = 'websites'): Locations
+    {
+        $backend = Bootstrap::getObjectManager()->create(Locations::class);
+        $backend->setPath('carriers/pppickup/locations');
+        $backend->setScope($scope);
+        $backend->setScopeCode('base');
+
+        return $backend;
+    }
+
+    #[Config('carriers/pppickup/locations', self::LOCATIONS)]
+    #[Config('carriers/pppickup/locations', self::WEBSITE_LOCATIONS, 'website', 'base')]
+    #[DataFixture(GuestCart::class, as: 'cart')]
+    #[DataFixture(ProductFixture::class, as: 'product')]
+    #[DataFixture(AddProductToCart::class, ['cart_id' => '$cart.id$', 'product_id' => '$product.id$'])]
+    public function testWebsiteOverrideCodeOfAnActiveCartCannotBeRemovedOrRevertedToDefault(): void
+    {
+        $objectManager = Bootstrap::getObjectManager();
+        $fixture = $objectManager->get(DataFixtureStorageManager::class)->getStorage()->get('cart');
+        self::assertInstanceOf(DataObject::class, $fixture);
+        $cartRepository = $objectManager->get(CartRepositoryInterface::class);
+        $cart = $cartRepository->get((int) $fixture->getId());
+        $cart->setData('pp_pickup_location_code', 'extra');
+        $cartRepository->save($cart);
+
+        // saving the website override without the code is refused
+        $save = $this->websiteBackend();
+        $save->setValue(['_1' => $this->row('main')]);
+        try {
+            $save->beforeSave();
+            self::fail('Removing a website code that an active cart uses must be rejected.');
+        } catch (LocalizedException $exception) {
+            self::assertStringContainsString('Pickup location "extra" is used by open carts', $exception->getMessage());
+        }
+
+        // "Use default" deletes the row: the default list has no "extra", so the delete is refused
+        try {
+            $this->websiteBackend()->beforeDelete();
+            self::fail('Reverting a website override that drops an in-use code must be rejected.');
+        } catch (LocalizedException $exception) {
+            self::assertStringContainsString('Pickup location "extra" is used by open carts', $exception->getMessage());
+        }
+
+        // once the cart is gone, the revert is allowed
+        $cart->setIsActive(false);
+        $cartRepository->save($cart);
+        $this->websiteBackend()->beforeDelete();
+    }
 }

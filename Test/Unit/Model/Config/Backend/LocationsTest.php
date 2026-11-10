@@ -8,6 +8,9 @@ use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Model\Context;
 use Magento\Framework\Registry;
 use Magento\Framework\Serialize\Serializer\Json;
+use Magento\Store\Api\Data\StoreInterface;
+use Magento\Store\Api\Data\WebsiteInterface;
+use Magento\Store\Model\StoreManagerInterface;
 use PHPUnit\Framework\TestCase;
 use PixelPerfect\StorePickup\Api\Service\LocationUsageInterface;
 use PixelPerfect\StorePickup\Model\Config\Backend\LocationTexts;
@@ -19,24 +22,35 @@ class LocationsTest extends TestCase
     /**
      * @param class-string<Locations|LocationTexts> $class
      * @param list<string> $inUse codes that open carts or orders use
+     * @param array<string, string> $scopeValues stored value per config scope type, falls back to $oldValue
      * @return Locations|LocationTexts
      */
     private function backend(
         string $class,
         mixed $value,
         ?string $oldValue = null,
-        array $inUse = []
+        array $inUse = [],
+        array $scopeValues = []
     ): Locations|LocationTexts {
         $context = $this->createMock(Context::class);
         $context->method('getEventDispatcher')->willReturn($this->createMock(\Magento\Framework\Event\ManagerInterface::class));
         $context->method('getCacheManager')->willReturn($this->createMock(\Magento\Framework\App\CacheInterface::class));
         $context->method('getLogger')->willReturn($this->createMock(\Psr\Log\LoggerInterface::class));
-        $context->method('getActionValidator')->willReturn(
-            $this->createMock(\Magento\Framework\Model\ActionValidator\RemoveAction::class)
-        );
+        $validator = $this->createMock(\Magento\Framework\Model\ActionValidator\RemoveAction::class);
+        $validator->method('isAllowed')->willReturn(true);
+        $context->method('getActionValidator')->willReturn($validator);
 
         $config = $this->createMock(ScopeConfigInterface::class);
-        $config->method('getValue')->willReturn($oldValue);
+        $config->method('getValue')->willReturnCallback(
+            static fn (?string $path, ?string $scope = null): ?string => $scopeValues[$scope] ?? $oldValue
+        );
+        $website = $this->createMock(WebsiteInterface::class);
+        $website->method('getCode')->willReturn('w1');
+        $store = $this->createMock(StoreInterface::class);
+        $store->method('getWebsiteId')->willReturn(5);
+        $storeManager = $this->createMock(StoreManagerInterface::class);
+        $storeManager->method('getStore')->willReturn($store);
+        $storeManager->method('getWebsite')->willReturn($website);
         $usage = $this->createMock(LocationUsageInterface::class);
         $usage->method('isInUse')->willReturnCallback(
             static fn (string $code): bool => in_array($code, $inUse, true)
@@ -51,7 +65,7 @@ class LocationsTest extends TestCase
         ];
         $tail = [null, null, [], new Json()];
         $backend = $class === Locations::class
-            ? new Locations(...$common, ...[$usage, new Json()], ...$tail)
+            ? new Locations(...$common, ...[$usage, new Json(), $storeManager], ...$tail)
             : new LocationTexts(...$common, ...$tail);
         $backend->setValue($value);
 
@@ -361,5 +375,87 @@ class LocationsTest extends TestCase
         $backend->beforeSave();
 
         $this->assertIsString($backend->getValue());
+    }
+
+    /**
+     * @param string $scope
+     * @param array<string, string> $scopeValues
+     * @param list<string> $inUse
+     */
+    private function deletion(string $scope, array $scopeValues, array $inUse): Locations
+    {
+        $backend = $this->backend(Locations::class, null, $scopeValues[$scope], $inUse, $scopeValues);
+        $this->assertInstanceOf(Locations::class, $backend);
+        $backend->setPath('carriers/pppickup/locations');
+        $backend->setScope($scope);
+        $backend->setScopeCode('x');
+
+        return $backend;
+    }
+
+    public function testRevertingAWebsiteToDefaultIsBlockedWhenAnInUseCodeVanishes(): void
+    {
+        $backend = $this->deletion(
+            'websites',
+            ['websites' => $this->stored(['_1' => $this->row('main')]), 'default' => $this->stored([])],
+            ['main']
+        );
+
+        $this->expectException(LocalizedException::class);
+        $this->expectExceptionMessage('Pickup location "main" is used by open carts or orders.');
+        $backend->beforeDelete();
+    }
+
+    public function testRevertingAWebsiteToDefaultPassesForAnUnusedCode(): void
+    {
+        $backend = $this->deletion(
+            'websites',
+            ['websites' => $this->stored(['_1' => $this->row('main')]), 'default' => $this->stored([])],
+            []
+        );
+
+        $this->assertSame($backend, $backend->beforeDelete());
+    }
+
+    public function testRevertingAWebsiteToDefaultPassesWhenDefaultStillHasTheCode(): void
+    {
+        $stored = $this->stored(['_1' => $this->row('main')]);
+        $backend = $this->deletion('websites', ['websites' => $stored, 'default' => $stored], ['main']);
+
+        $this->assertSame($backend, $backend->beforeDelete());
+    }
+
+    public function testRevertingAStoreComparesWithTheWebsiteValue(): void
+    {
+        $backend = $this->deletion(
+            'stores',
+            ['stores' => $this->stored(['_1' => $this->row('main')]), 'websites' => $this->stored([])],
+            ['main']
+        );
+
+        $this->expectException(LocalizedException::class);
+        $backend->beforeDelete();
+    }
+
+    public function testDeletingAtDefaultScopeIsNotGuarded(): void
+    {
+        $backend = $this->deletion('default', ['default' => $this->stored(['_1' => $this->row('main')])], ['main']);
+
+        $this->assertSame($backend, $backend->beforeDelete());
+    }
+
+    public function testWebsiteSaveReadsTheOldValueAtTheWebsiteScope(): void
+    {
+        $backend = $this->backend(
+            Locations::class,
+            ['_1' => $this->row('second')],
+            $this->stored([]),
+            ['main'],
+            ['websites' => $this->stored(['_1' => $this->row('main')])]
+        );
+        $backend->setScope('websites');
+
+        $this->expectException(LocalizedException::class);
+        $backend->beforeSave();
     }
 }
