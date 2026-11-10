@@ -33,3 +33,4 @@
 "Pickup location code ""%1"" is used twice.","Der Code ""%1"" des Abholorts wird zweimal verwendet."
 "Pickup location ""%1"" needs a name, street, postcode, city and country.","Der Abholort ""%1"" benötigt Name, Straße, Postleitzahl, Ort und Land."
 "Pickup Location","Abholort"
+"Pickup location ""%1"" is used by open carts or orders. Deactivate it instead of removing or renaming it.","Der Abholort ""%1"" wird von offenen Warenkörben oder Bestellungen verwendet. Deaktivieren Sie ihn, statt ihn zu entfernen oder umzubenennen."

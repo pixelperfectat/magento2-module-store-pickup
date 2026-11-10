@@ -9,6 +9,7 @@ use Magento\Framework\Model\Context;
 use Magento\Framework\Registry;
 use Magento\Framework\Serialize\Serializer\Json;
 use PHPUnit\Framework\TestCase;
+use PixelPerfect\StorePickup\Api\Service\LocationUsageInterface;
 use PixelPerfect\StorePickup\Model\Config\Backend\LocationTexts;
 use PixelPerfect\StorePickup\Model\Config\Backend\Locations;
 use PixelPerfect\StorePickup\Service\PickupMethodResolver;
@@ -17,10 +18,15 @@ class LocationsTest extends TestCase
 {
     /**
      * @param class-string<Locations|LocationTexts> $class
+     * @param list<string> $inUse codes that open carts or orders use
      * @return Locations|LocationTexts
      */
-    private function backend(string $class, mixed $value): Locations|LocationTexts
-    {
+    private function backend(
+        string $class,
+        mixed $value,
+        ?string $oldValue = null,
+        array $inUse = []
+    ): Locations|LocationTexts {
         $context = $this->createMock(Context::class);
         $context->method('getEventDispatcher')->willReturn($this->createMock(\Magento\Framework\Event\ManagerInterface::class));
         $context->method('getCacheManager')->willReturn($this->createMock(\Magento\Framework\App\CacheInterface::class));
@@ -29,17 +35,24 @@ class LocationsTest extends TestCase
             $this->createMock(\Magento\Framework\Model\ActionValidator\RemoveAction::class)
         );
 
-        $backend = new $class(
+        $config = $this->createMock(ScopeConfigInterface::class);
+        $config->method('getValue')->willReturn($oldValue);
+        $usage = $this->createMock(LocationUsageInterface::class);
+        $usage->method('isInUse')->willReturnCallback(
+            static fn (string $code): bool => in_array($code, $inUse, true)
+        );
+
+        $common = [
             $context,
             $this->createMock(Registry::class),
-            $this->createMock(ScopeConfigInterface::class),
+            $config,
             $this->createMock(TypeListInterface::class),
             new PickupMethodResolver(),
-            null,
-            null,
-            [],
-            new Json()
-        );
+        ];
+        $tail = [null, null, [], new Json()];
+        $backend = $class === Locations::class
+            ? new Locations(...$common, ...[$usage, new Json()], ...$tail)
+            : new LocationTexts(...$common, ...$tail);
         $backend->setValue($value);
 
         return $backend;
@@ -245,6 +258,105 @@ class LocationsTest extends TestCase
     public function testTextsNumericCodeIsAccepted(): void
     {
         $backend = $this->backend(LocationTexts::class, ['_1' => ['code' => 7]]);
+
+        $backend->beforeSave();
+
+        $this->assertIsString($backend->getValue());
+    }
+
+    /**
+     * @param array<string, array<string, string>> $rows
+     */
+    private function stored(array $rows): string
+    {
+        return (new Json())->serialize($rows);
+    }
+
+    public function testRemovingACodeInUseIsRejected(): void
+    {
+        $old = $this->stored(['_1' => $this->row('main'), '_2' => $this->row('second')]);
+        $backend = $this->backend(Locations::class, ['_2' => $this->row('second')], $old, ['main']);
+
+        $this->expectException(LocalizedException::class);
+        $this->expectExceptionMessage(
+            'Pickup location "main" is used by open carts or orders. '
+            . 'Deactivate it instead of removing or renaming it.'
+        );
+        $backend->beforeSave();
+    }
+
+    public function testRenamingTheCodeOfALocationInUseIsRejected(): void
+    {
+        $old = $this->stored(['_1' => $this->row('main')]);
+        $backend = $this->backend(Locations::class, ['_1' => $this->row('central')], $old, ['main']);
+
+        $this->expectException(LocalizedException::class);
+        $this->expectExceptionMessage('Pickup location "main" is used by open carts or orders.');
+        $backend->beforeSave();
+    }
+
+    public function testDeactivatingACodeInUseIsSaved(): void
+    {
+        $old = $this->stored(['_1' => $this->row('main')]);
+        $backend = $this->backend(Locations::class, ['_1' => $this->row('main', ['active' => '0'])], $old, ['main']);
+
+        $backend->beforeSave();
+
+        $this->assertIsString($backend->getValue());
+    }
+
+    public function testRemovingAnUnusedCodeIsSaved(): void
+    {
+        $old = $this->stored(['_1' => $this->row('main'), '_2' => $this->row('second')]);
+        $backend = $this->backend(Locations::class, ['_1' => $this->row('main')], $old, ['main']);
+
+        $backend->beforeSave();
+
+        $this->assertIsString($backend->getValue());
+    }
+
+    public function testRenamingOnlyTheTitleIsSaved(): void
+    {
+        $old = $this->stored(['_1' => $this->row('main')]);
+        $backend = $this->backend(Locations::class, ['_1' => $this->row('main', ['name' => 'Central'])], $old, ['main']);
+
+        $backend->beforeSave();
+
+        $this->assertIsString($backend->getValue());
+    }
+
+    public function testNumericCodeInUseIsProtected(): void
+    {
+        $old = $this->stored(['_1' => ['code' => 7] + $this->row('7')]);
+        $backend = $this->backend(Locations::class, ['_2' => $this->row('8')], $old, ['7']);
+
+        $this->expectException(LocalizedException::class);
+        $this->expectExceptionMessage('Pickup location "7" is used by open carts or orders.');
+        $backend->beforeSave();
+    }
+
+    public function testUnreadableOldValueDoesNotBlockTheSave(): void
+    {
+        $backend = $this->backend(Locations::class, ['_1' => $this->row('main')], '{broken', ['main']);
+
+        $backend->beforeSave();
+
+        $this->assertIsString($backend->getValue());
+    }
+
+    public function testEmptyOldValueDoesNotBlockTheSave(): void
+    {
+        $backend = $this->backend(Locations::class, ['_1' => $this->row('main')], '', ['main']);
+
+        $backend->beforeSave();
+
+        $this->assertIsString($backend->getValue());
+    }
+
+    public function testOldRowsWithoutACodeAreIgnored(): void
+    {
+        $old = $this->stored(['_0' => ['name' => 'No code'], '_1' => $this->row('main')]);
+        $backend = $this->backend(Locations::class, ['_1' => $this->row('main')], $old, ['main']);
 
         $backend->beforeSave();
 

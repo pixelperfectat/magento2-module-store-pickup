@@ -11,6 +11,8 @@ use Magento\Framework\Model\Context;
 use Magento\Framework\Model\ResourceModel\AbstractResource;
 use Magento\Framework\Registry;
 use Magento\Framework\Serialize\Serializer\Json;
+use Magento\Framework\Serialize\SerializerInterface;
+use PixelPerfect\StorePickup\Api\Service\LocationUsageInterface;
 use PixelPerfect\StorePickup\Api\Service\PickupMethodResolverInterface;
 
 /**
@@ -31,6 +33,8 @@ class Locations extends ArraySerialized
      * @param ScopeConfigInterface $config
      * @param TypeListInterface $cacheTypeList
      * @param PickupMethodResolverInterface $resolver
+     * @param LocationUsageInterface $usage
+     * @param SerializerInterface $oldValueSerializer
      * @param AbstractResource|null $resource
      * @param AbstractDb|null $resourceCollection
      * @param array<string, mixed> $data
@@ -42,6 +46,8 @@ class Locations extends ArraySerialized
         ScopeConfigInterface $config,
         TypeListInterface $cacheTypeList,
         private readonly PickupMethodResolverInterface $resolver,
+        private readonly LocationUsageInterface $usage,
+        private readonly SerializerInterface $oldValueSerializer,
         ?AbstractResource $resource = null,
         ?AbstractDb $resourceCollection = null,
         array $data = [],
@@ -60,7 +66,7 @@ class Locations extends ArraySerialized
     }
 
     /**
-     * Reject rows with an invalid or repeated code or with missing address data.
+     * Reject rows with an invalid or repeated code, with missing address data, or without a code that is still in use.
      *
      * @return $this
      * @throws LocalizedException
@@ -70,6 +76,7 @@ class Locations extends ArraySerialized
         $rows = $this->getValue();
         if (is_array($rows)) {
             $this->validate($rows);
+            $this->guardCodesInUse($rows);
         }
 
         return parent::beforeSave();
@@ -108,6 +115,67 @@ class Locations extends ArraySerialized
                 }
             }
         }
+    }
+
+    /**
+     * Reject the removal (or rename) of a code that open carts or orders still use.
+     *
+     * @param array<array-key, mixed> $rows
+     * @return void
+     * @throws LocalizedException
+     */
+    private function guardCodesInUse(array $rows): void
+    {
+        $kept = $this->codes($rows);
+        foreach ($this->codes($this->oldRows()) as $code) {
+            if (!in_array($code, $kept, true) && $this->usage->isInUse($code)) {
+                throw new LocalizedException(
+                    __(
+                        'Pickup location "%1" is used by open carts or orders. '
+                        . 'Deactivate it instead of removing or renaming it.',
+                        $code
+                    )
+                );
+            }
+        }
+    }
+
+    /**
+     * The rows saved before this change; empty when there are none or they cannot be read.
+     *
+     * @return array<array-key, mixed>
+     */
+    private function oldRows(): array
+    {
+        $old = $this->getOldValue();
+        if ($old === '') {
+            return [];
+        }
+        try {
+            $rows = $this->oldValueSerializer->unserialize($old);
+        } catch (\InvalidArgumentException) {
+            return [];
+        }
+
+        return is_array($rows) ? $rows : [];
+    }
+
+    /**
+     * Location codes of the rows, always as strings.
+     *
+     * @param array<array-key, mixed> $rows
+     * @return list<string>
+     */
+    private function codes(array $rows): array
+    {
+        $codes = [];
+        foreach ($rows as $row) {
+            if (is_array($row) && is_scalar($row['code'] ?? null)) {
+                $codes[] = (string) $row['code'];
+            }
+        }
+
+        return $codes;
     }
 
     /**

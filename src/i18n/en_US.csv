@@ -33,3 +33,4 @@
 "Pickup location code ""%1"" is used twice.","Pickup location code ""%1"" is used twice."
 "Pickup location ""%1"" needs a name, street, postcode, city and country.","Pickup location ""%1"" needs a name, street, postcode, city and country."
 "Pickup Location","Pickup Location"
+"Pickup location ""%1"" is used by open carts or orders. Deactivate it instead of removing or renaming it.","Pickup location ""%1"" is used by open carts or orders. Deactivate it instead of removing or renaming it."
