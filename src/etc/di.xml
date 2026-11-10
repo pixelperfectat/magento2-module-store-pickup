@@ -11,6 +11,8 @@
                 type="PixelPerfect\StorePickup\Service\Availability\CompositeAvailabilityChecker"/>
     <preference for="PixelPerfect\StorePickup\Api\Service\PickupAddressApplierInterface"
                 type="PixelPerfect\StorePickup\Service\PickupAddressApplier"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\OrderPlacementProcessorInterface"
+                type="PixelPerfect\StorePickup\Service\OrderPlacement\CompositeOrderPlacementProcessor"/>
 
     <type name="PixelPerfect\StorePickup\Service\LocationProvider\CompositeLocationProvider">
         <arguments>
@@ -31,6 +33,17 @@
             <argument name="checkers" xsi:type="array">
                 <item name="always" xsi:type="object" sortOrder="10">PixelPerfect\StorePickup\Service\Availability\AlwaysAvailable</item>
             </argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Service\OrderPlacement\CompositeOrderPlacementProcessor">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+            <argument name="processors" xsi:type="array"/>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Observer\RunPickupOrderPlacementProcessors">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
         </arguments>
     </type>
     <type name="PixelPerfect\StorePickup\Model\Carrier\StorePickup">
