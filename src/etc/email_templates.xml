@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Email:etc/email_templates.xsd">
+    <template id="pp_store_pickup_ready_email_template" label="Ready for Pickup"
+              file="ready_for_pickup.html" type="html" module="PixelPerfect_StorePickup" area="frontend"/>
+    <template id="pp_store_pickup_ready_email_guest_template" label="Ready for Pickup for Guest"
+              file="ready_for_pickup_guest.html" type="html" module="PixelPerfect_StorePickup" area="frontend"/>
+</config>

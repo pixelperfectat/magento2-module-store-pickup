@@ -15,6 +15,8 @@
                 type="PixelPerfect\StorePickup\Service\OrderPlacement\CompositeOrderPlacementProcessor"/>
     <preference for="PixelPerfect\StorePickup\Api\Service\LocationUsageInterface"
                 type="PixelPerfect\StorePickup\Service\LocationUsage"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\ReadyForPickupEmailSenderInterface"
+                type="PixelPerfect\StorePickup\Service\ReadyForPickup\EmailSender"/>
 
     <type name="PixelPerfect\StorePickup\Service\LocationProvider\CompositeLocationProvider">
         <arguments>
@@ -108,6 +110,14 @@
             </argument>
         </arguments>
     </virtualType>
+
+    <type name="PixelPerfect\StorePickup\Service\ReadyForPickup\EmailSender">
+        <arguments>
+            <argument name="templateContainer" xsi:type="object" shared="false">Magento\Sales\Model\Order\Email\Container\Template</argument>
+            <argument name="identityContainer" xsi:type="object">PixelPerfect\StorePickup\Model\Order\Email\Container\ReadyForPickupIdentity</argument>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
 
     <virtualType name="PixelPerfect\StorePickup\Logger\Handler"
                  type="Magento\Framework\Logger\Handler\Base">

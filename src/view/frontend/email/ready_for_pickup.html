@@ -1,0 +1,74 @@
+<!--@subject {{trans "Your %store_name order #%increment_id is ready for pickup" store_name=$store.frontend_name increment_id=$order.increment_id}} @-->
+<!--@vars {
+"var order_data.customer_name":"Customer Name",
+"var order.increment_id":"Order Id",
+"var order_data.frontend_status_label":"Order Status",
+"var order_data.email_customer_note":"Email Order Note",
+"var order_data.is_not_virtual":"Order Type",
+"var location.name":"Pickup Location Name",
+"var location.street":"Pickup Location Street",
+"var location.postcode":"Pickup Location Postcode",
+"var location.city":"Pickup Location City",
+"var location.country":"Pickup Location Country",
+"var location.telephone":"Pickup Location Telephone",
+"var location.opening_hours|escape|nl2br":"Pickup Location Opening Hours",
+"var location.note|escape|nl2br":"Pickup Location Note",
+"layout handle=\"sales_email_order_items\" order_id=$order_id":"Order Items Grid",
+"var store.frontend_name":"Store Frontend Name",
+"var this.getUrl($store,'customer/account/',[_nosid:1])":"Customer Account URL",
+"var order": "Order",
+"var order_id": "Order DB Id"
+} @-->
+{{template config_path="design/email/header_template"}}
+
+<table>
+    <tr class="email-intro">
+        <td>
+            <p class="greeting">{{trans "%name," name=$order_data.customer_name}}</p>
+            <p>{{trans "Your order #%increment_id is ready for pickup." increment_id=$order.increment_id}}</p>
+            <p>{{trans 'You can check the status of your order by <a href="%account_url">logging into your account</a>.' account_url=$this.getUrl($store,'customer/account/',[_nosid:1]) |raw}}</p>
+        </td>
+    </tr>
+    <tr class="email-information">
+        <td>
+            <table class="order-details">
+                <tr>
+                    <td class="address-details">
+                        <h3>{{trans "Pickup Location"}}</h3>
+                        <p>
+                            {{var location.name}}<br/>
+                            {{var location.street}}<br/>
+                            {{var location.postcode}} {{var location.city}}<br/>
+                            {{var location.country}}
+                            {{depend location.telephone}}<br/>{{trans "Telephone: %telephone" telephone=$location.telephone}}{{/depend}}
+                        </p>
+                    </td>
+                    {{depend location.opening_hours}}
+                    <td class="method-info">
+                        <h3>{{trans "Opening Hours"}}</h3>
+                        <p>{{var location.opening_hours|escape|nl2br}}</p>
+                    </td>
+                    {{/depend}}
+                </tr>
+            </table>
+            {{depend location.note}}
+            <table class="message-info">
+                <tr>
+                    <td>{{var location.note|escape|nl2br}}</td>
+                </tr>
+            </table>
+            {{/depend}}
+            <p>{{trans "Please bring your order number #%increment_id when you collect your order." increment_id=$order.increment_id}}</p>
+            {{depend order_data.email_customer_note}}
+            <table class="message-info">
+                <tr>
+                    <td>{{var order_data.email_customer_note|escape|nl2br}}</td>
+                </tr>
+            </table>
+            {{/depend}}
+            {{layout handle="sales_email_order_items" order_id=$order_id area="frontend"}}
+        </td>
+    </tr>
+</table>
+
+{{template config_path="design/email/footer_template"}}
