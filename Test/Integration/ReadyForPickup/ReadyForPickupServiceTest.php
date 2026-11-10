@@ -10,6 +10,7 @@ use Magento\Checkout\Test\Fixture\SetPaymentMethod;
 use Magento\Checkout\Test\Fixture\SetShippingAddress;
 use Magento\Customer\Test\Fixture\Customer;
 use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Locale\ResolverInterface;
 use Magento\Framework\Mail\EmailMessageInterface;
 use Magento\Quote\Test\Fixture\AddProductToCart;
 use Magento\Quote\Test\Fixture\CustomerCart;
@@ -339,5 +340,41 @@ class ReadyForPickupServiceTest extends TestCase
         self::assertStringContainsString('Jane Doe', $body);
         // only the customer template links to the customer account
         self::assertStringNotContainsString('logging into your account', $body);
+    }
+
+    #[AppArea('adminhtml')]
+    #[Config('general/locale/code', 'de_DE', 'store', 'default')]
+    #[Config('carriers/pppickup/active', '1', 'store', 'default')]
+    #[Config('carriers/pppickup/locations', self::LOCATIONS, 'store', 'default')]
+    #[Config('carriers/pppickup/locations', self::LOCATIONS)]
+    #[DataFixture(ProductFixture::class, as: 'product')]
+    #[DataFixture(GuestCart::class, as: 'cart')]
+    #[DataFixture(AddProductToCart::class, ['cart_id' => '$cart.id$', 'product_id' => '$product.id$'])]
+    #[DataFixture(SetBillingAddress::class, ['cart_id' => '$cart.id$', 'address' => self::ADDRESS])]
+    #[DataFixture(SetShippingAddress::class, ['cart_id' => '$cart.id$', 'address' => self::ADDRESS])]
+    #[DataFixture(
+        SetDeliveryMethod::class,
+        ['cart_id' => '$cart.id$', 'carrier_code' => 'pppickup', 'method_code' => 'main']
+    )]
+    #[DataFixture(SetGuestEmail::class, ['cart_id' => '$cart.id$', 'email' => 'jane.doe@example.com'])]
+    #[DataFixture(SetPaymentMethod::class, ['cart_id' => '$cart.id$', 'method' => 'checkmo'])]
+    public function testCommentUsesTheLocaleOfTheOrderStoreAndKeepsTheCallerLocale(): void
+    {
+        $orderId = $this->placeOrder();
+        $resolver = Bootstrap::getObjectManager()->get(ResolverInterface::class);
+        $callerLocale = $resolver->getLocale();
+        self::assertSame('en_US', $callerLocale);
+
+        $this->service()->execute($orderId);
+
+        self::assertSame(
+            'Ihre Bestellung ist abholbereit bei Main Store.',
+            $this->lastComment($this->freshOrder($orderId))->getComment()
+        );
+        self::assertSame($callerLocale, $resolver->getLocale());
+        self::assertSame(
+            'Your order is ready for pickup at Main Store.',
+            (string) __('Your order is ready for pickup at %1.', 'Main Store')
+        );
     }
 }

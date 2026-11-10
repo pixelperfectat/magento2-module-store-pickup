@@ -203,6 +203,27 @@ class EmailSenderTest extends TestCase
         self::assertFalse($this->sender->send($this->order(), $this->location));
     }
 
+    public function testErrorWhileSendingIsLoggedAndReturnsFalse(): void
+    {
+        $this->identity->method('getCopyMethod')->willReturn('copy');
+        $this->senderBuilder->method('send')->willThrowException(new \Error('template broken'));
+        $this->senderBuilder->expects($this->never())->method('sendCopyTo');
+        $this->logger->expects($this->once())->method('error')
+            ->with('Ready-for-pickup email for order 000000042 failed: template broken', $this->arrayHasKey('exception'));
+
+        self::assertFalse($this->sender->send($this->order(), $this->location));
+    }
+
+    public function testErrorWhileSendingTheCopyIsLoggedAndStillCountsAsSent(): void
+    {
+        $this->identity->method('getCopyMethod')->willReturn('copy');
+        $this->senderBuilder->method('sendCopyTo')->willThrowException(new \TypeError('copy broken'));
+        $this->logger->expects($this->once())->method('error')
+            ->with('Ready-for-pickup email copy for order 000000042 failed: copy broken', $this->arrayHasKey('exception'));
+
+        self::assertTrue($this->sender->send($this->order(), $this->location));
+    }
+
     public function testOrderThatIsNoOrderModelIsNotSent(): void
     {
         $order = $this->createMock(OrderInterface::class);

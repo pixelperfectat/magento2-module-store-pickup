@@ -2,7 +2,10 @@
 
 namespace PixelPerfect\StorePickup\Test\Unit\Service\ReadyForPickup;
 
+use Magento\Framework\App\Area;
 use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Locale\ResolverInterface;
+use Magento\Framework\TranslateInterface;
 use Magento\Framework\Stdlib\DateTime\DateTime;
 use Magento\Sales\Api\Data\OrderInterface;
 use Magento\Sales\Api\Data\OrderStatusHistoryInterface;
@@ -50,6 +53,12 @@ class ReadyForPickupServiceTest extends TestCase
     /** @var DateTime&MockObject */
     private $dateTime;
 
+    /** @var ResolverInterface&MockObject */
+    private $localeResolver;
+
+    /** @var TranslateInterface&MockObject */
+    private $translate;
+
     private PickupLocation $location;
 
     private ReadyForPickupService $service;
@@ -73,6 +82,8 @@ class ReadyForPickupServiceTest extends TestCase
         $this->config = $this->createMock(ConfigInterface::class);
         $this->dateTime = $this->createMock(DateTime::class);
         $this->dateTime->method('gmtDate')->willReturn('2026-11-10 08:00:00');
+        $this->localeResolver = $this->createMock(ResolverInterface::class);
+        $this->translate = $this->createMock(TranslateInterface::class);
         $this->location = new PickupLocation('main', 'Main Store', ['1 Example Street'], '1010', 'Vienna', 'AT');
         $this->service = new ReadyForPickupService(
             $this->orderRepository,
@@ -82,7 +93,9 @@ class ReadyForPickupServiceTest extends TestCase
             $this->argumentsBuilder,
             $this->emailSender,
             $this->config,
-            $this->dateTime
+            $this->dateTime,
+            $this->localeResolver,
+            $this->translate
         );
     }
 
@@ -227,6 +240,138 @@ class ReadyForPickupServiceTest extends TestCase
             self::assertSame($exception, $e::class);
             self::assertSame($message, $e->getMessage());
         }
+    }
+
+    public function testStateIsCheckedBeforeTheLocation(): void
+    {
+        $this->orderRepository->method('get')->willReturn($this->order(state: Order::STATE_CANCELED));
+        $this->locations->method('getLocation')->willReturn(null);
+
+        $this->expectException(LocalizedException::class);
+        $this->expectExceptionMessage('Order 000000042 cannot be marked as ready for pickup in state "canceled".');
+
+        $this->service->execute(self::ORDER_ID);
+    }
+
+    /**
+     * Locale mocks for a caller in en_US and an order store in de_DE; records the calls in $log.
+     *
+     * @param list<string> $log
+     */
+    private function storeLocaleDiffers(array &$log): void
+    {
+        $this->localeResolver->method('getLocale')->willReturn('en_US');
+        $this->localeResolver->expects($this->once())->method('emulate')->with(self::STORE_ID)
+            ->willReturnCallback(static function () use (&$log): string {
+                $log[] = 'emulate';
+
+                return 'de_DE';
+            });
+        $this->localeResolver->expects($this->once())->method('revert')
+            ->willReturnCallback(static function () use (&$log): string {
+                $log[] = 'revert';
+
+                return 'en_US';
+            });
+        $this->translate->method('setLocale')->willReturnCallback(function (string $locale) use (&$log) {
+            $log[] = 'translate ' . $locale;
+
+            return $this->translate;
+        });
+        $this->translate->method('loadData')->willReturnCallback(function ($area = null) use (&$log) {
+            $log[] = 'load ' . ($area ?? 'current');
+
+            return $this->translate;
+        });
+    }
+
+    public function testCommentIsRenderedInTheLocaleOfTheOrderStore(): void
+    {
+        $log = [];
+        $this->storeLocaleDiffers($log);
+        $order = $this->order(state: Order::STATE_PROCESSING, hasShipments: true, status: 'processing');
+        $this->orderRepository->method('get')->willReturn($order);
+        $this->locationFound();
+        $this->config->method('isReadyEmailEnabled')->willReturn(false);
+        $history = $this->createMock(OrderStatusHistoryInterface::class);
+        $history->method('setIsCustomerNotified')->willReturnSelf();
+        $order->expects($this->once())->method('addCommentToStatusHistory')
+            ->willReturnCallback(static function () use (&$log, $history) {
+                $log[] = 'comment';
+
+                return $history;
+            });
+        $this->orderRepository->expects($this->once())->method('save')
+            ->willReturnCallback(static function (Order $saved) use (&$log): Order {
+                $log[] = 'save';
+
+                return $saved;
+            });
+
+        $this->service->execute(self::ORDER_ID);
+
+        self::assertSame(
+            [
+                'emulate', 'translate de_DE', 'load ' . Area::AREA_FRONTEND,
+                'comment',
+                'revert', 'translate en_US', 'load current',
+                'save',
+            ],
+            $log
+        );
+    }
+
+    public function testCallerLocaleIsRestoredWhenTheCommentFails(): void
+    {
+        $log = [];
+        $this->storeLocaleDiffers($log);
+        $order = $this->order(state: Order::STATE_PROCESSING, hasShipments: true, status: 'processing');
+        $this->orderRepository->method('get')->willReturn($order);
+        $this->locationFound();
+        $order->method('addCommentToStatusHistory')->willThrowException(new \RuntimeException('history broken'));
+        $this->orderRepository->expects($this->never())->method('save');
+
+        try {
+            $this->service->execute(self::ORDER_ID);
+            self::fail('The failure must reach the caller.');
+        } catch (\RuntimeException $e) {
+            self::assertSame('history broken', $e->getMessage());
+        }
+
+        self::assertSame(
+            ['emulate', 'translate de_DE', 'load ' . Area::AREA_FRONTEND, 'revert', 'translate en_US', 'load current'],
+            $log
+        );
+    }
+
+    public function testStoreWithoutLocaleKeepsTheLoadedTranslations(): void
+    {
+        $this->localeResolver->method('getLocale')->willReturn('en_US');
+        $this->localeResolver->expects($this->once())->method('emulate')->with(self::STORE_ID)->willReturn(null);
+        $this->localeResolver->expects($this->once())->method('revert');
+        $this->translate->expects($this->never())->method('setLocale');
+        $this->translate->expects($this->never())->method('loadData');
+        $order = $this->order(state: Order::STATE_PROCESSING, hasShipments: true, status: 'processing');
+        $this->orderRepository->method('get')->willReturn($order);
+        $this->locationFound();
+        $this->expectComment($order, 0);
+
+        $this->service->execute(self::ORDER_ID);
+    }
+
+    public function testSameLocaleKeepsTheLoadedTranslations(): void
+    {
+        $this->localeResolver->method('getLocale')->willReturn('de_DE');
+        $this->localeResolver->expects($this->once())->method('emulate')->with(self::STORE_ID)->willReturn('de_DE');
+        $this->localeResolver->expects($this->once())->method('revert');
+        $this->translate->expects($this->never())->method('setLocale');
+        $this->translate->expects($this->never())->method('loadData');
+        $order = $this->order(state: Order::STATE_PROCESSING, hasShipments: true, status: 'processing');
+        $this->orderRepository->method('get')->willReturn($order);
+        $this->locationFound();
+        $this->expectComment($order, 0);
+
+        $this->service->execute(self::ORDER_ID);
     }
 
     public function testRejectsAnOrderThatIsNoOrderModel(): void

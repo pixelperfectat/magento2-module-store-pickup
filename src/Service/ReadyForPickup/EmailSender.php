@@ -89,7 +89,7 @@ class EmailSender implements ReadyForPickupEmailSenderInterface
         ]);
         try {
             $sender->send();
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error(
                 'Ready-for-pickup email for order ' . $order->getIncrementId() . ' failed: ' . $e->getMessage(),
                 ['exception' => $e]
@@ -100,7 +100,7 @@ class EmailSender implements ReadyForPickupEmailSenderInterface
         if ($this->identityContainer->getCopyMethod() === 'copy') {
             try {
                 $sender->sendCopyTo();
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 $this->logger->error(
                     'Ready-for-pickup email copy for order ' . $order->getIncrementId() . ' failed: '
                     . $e->getMessage(),

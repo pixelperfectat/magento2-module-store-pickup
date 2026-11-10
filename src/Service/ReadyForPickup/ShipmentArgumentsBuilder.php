@@ -8,6 +8,9 @@ use Magento\Sales\Api\Data\ShipmentCreationArgumentsInterfaceFactory;
 use PixelPerfect\StorePickup\Api\Data\PickupLocationInterface;
 use PixelPerfect\StorePickup\Api\Service\ShipmentArgumentsBuilderInterface;
 
+/**
+ * Default shipment arguments for the ready-for-pickup shipment: none. An inventory integration adds its source.
+ */
 class ShipmentArgumentsBuilder implements ShipmentArgumentsBuilderInterface
 {
     /**

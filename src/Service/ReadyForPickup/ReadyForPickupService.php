@@ -2,8 +2,11 @@
 
 namespace PixelPerfect\StorePickup\Service\ReadyForPickup;
 
+use Magento\Framework\App\Area;
 use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Locale\ResolverInterface;
 use Magento\Framework\Stdlib\DateTime\DateTime;
+use Magento\Framework\TranslateInterface;
 use Magento\Sales\Api\Data\OrderInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Api\ShipOrderInterface;
@@ -16,6 +19,12 @@ use PixelPerfect\StorePickup\Api\Service\ReadyForPickupServiceInterface;
 use PixelPerfect\StorePickup\Api\Service\ShipmentArgumentsBuilderInterface;
 use PixelPerfect\StorePickup\Exception\AlreadyNotifiedException;
 
+/**
+ * Ships a pickup order, sets its ready-for-pickup status, emails the customer and records the step.
+ *
+ * Errors thrown to the caller are in the caller's locale; the customer-visible order comment is written in the
+ * locale of the order's store.
+ */
 class ReadyForPickupService implements ReadyForPickupServiceInterface
 {
     /**
@@ -29,6 +38,8 @@ class ReadyForPickupService implements ReadyForPickupServiceInterface
      * @param ReadyForPickupEmailSenderInterface $emailSender
      * @param ConfigInterface $config
      * @param DateTime $dateTime
+     * @param ResolverInterface $localeResolver
+     * @param TranslateInterface $translate
      * @param string $status Status set on an order that is in state processing after the shipment.
      * @param list<string> $eligibleStates Order states in which the step may run.
      */
@@ -41,6 +52,8 @@ class ReadyForPickupService implements ReadyForPickupServiceInterface
         private readonly ReadyForPickupEmailSenderInterface $emailSender,
         private readonly ConfigInterface $config,
         private readonly DateTime $dateTime,
+        private readonly ResolverInterface $localeResolver,
+        private readonly TranslateInterface $translate,
         private readonly string $status = self::STATUS,
         private readonly array $eligibleStates = [Order::STATE_NEW, Order::STATE_PROCESSING, Order::STATE_COMPLETE]
     ) {
@@ -81,6 +94,8 @@ class ReadyForPickupService implements ReadyForPickupServiceInterface
                 [],
                 $this->argumentsBuilder->build($order, $location)
             );
+            // With the core repository this returns the registry instance that ShipOrder already updated and saved;
+            // the call keeps the state check below right for repositories without such a registry.
             $order = $this->load($orderId);
         }
 
@@ -91,13 +106,40 @@ class ReadyForPickupService implements ReadyForPickupServiceInterface
 
         $sent = $this->config->isReadyEmailEnabled($storeId) && $this->emailSender->send($order, $location);
 
-        $order->addCommentToStatusHistory(
-            (string) __('Your order is ready for pickup at %1.', $location->getName()),
-            false,
-            true
-        )->setIsCustomerNotified($sent ? 1 : 0);
+        $this->inStoreLocale($storeId, static function () use ($order, $location, $sent): void {
+            $order->addCommentToStatusHistory(
+                (string) __('Your order is ready for pickup at %1.', $location->getName()),
+                false,
+                true
+            )->setIsCustomerNotified($sent ? 1 : 0);
+        });
         $order->setData(self::NOTIFIED_AT, $this->dateTime->gmtDate());
         $this->orderRepository->save($order);
+    }
+
+    /**
+     * Runs a callback with the locale and translations of a store, then restores the caller's, also on failure.
+     *
+     * @param int $storeId
+     * @param callable(): void $callback
+     * @return void
+     */
+    private function inStoreLocale(int $storeId, callable $callback): void
+    {
+        $callerLocale = $this->localeResolver->getLocale();
+        $storeLocale = $this->localeResolver->emulate($storeId);
+        $switch = is_string($storeLocale) && $storeLocale !== $callerLocale;
+        try {
+            if ($switch) {
+                $this->translate->setLocale($storeLocale)->loadData(Area::AREA_FRONTEND);
+            }
+            $callback();
+        } finally {
+            $this->localeResolver->revert();
+            if ($switch) {
+                $this->translate->setLocale($callerLocale)->loadData();
+            }
+        }
     }
 
     /**
