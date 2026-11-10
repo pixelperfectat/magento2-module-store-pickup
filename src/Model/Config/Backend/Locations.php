@@ -71,7 +71,7 @@ class Locations extends ArraySerialized
     }
 
     /**
-     * Decode a string value, then reject rows with an invalid or repeated code, with missing address data, or without a code that is still in use.
+     * Decode a string value, then reject invalid or repeated codes, missing address data and removed codes in use.
      *
      * @return $this
      * @throws LocalizedException

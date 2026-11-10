@@ -67,3 +67,6 @@
 "These methods are offered for pickup orders only, for example pay at the store.","These methods are offered for pickup orders only, for example pay at the store."
 "Payment Methods Hidden for Pickup","Payment Methods Hidden for Pickup"
 "These methods are not offered for pickup orders.","These methods are not offered for pickup orders."
+"Invalid pickup location code ""%1"".","Invalid pickup location code ""%1""."
+"The pickup location rows are not valid JSON.","The pickup location rows are not valid JSON."
+"The pickup location rows must be a JSON list of rows.","The pickup location rows must be a JSON list of rows."

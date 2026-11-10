@@ -67,3 +67,6 @@
 "These methods are offered for pickup orders only, for example pay at the store.","Diese Zahlungsarten werden nur für Abholbestellungen angeboten, zum Beispiel Zahlung im Geschäft."
 "Payment Methods Hidden for Pickup","Zahlungsarten ausgeblendet bei Abholung"
 "These methods are not offered for pickup orders.","Diese Zahlungsarten werden für Abholbestellungen nicht angeboten."
+"Invalid pickup location code ""%1"".","Ungültiger Abholort-Code ""%1""."
+"The pickup location rows are not valid JSON.","Die Zeilen der Abholorte sind kein gültiges JSON."
+"The pickup location rows must be a JSON list of rows.","Die Zeilen der Abholorte müssen eine JSON-Liste von Zeilen sein."

@@ -67,3 +67,6 @@
 "These methods are offered for pickup orders only, for example pay at the store.","Questi metodi sono offerti solo per gli ordini con ritiro, ad esempio il pagamento in negozio."
 "Payment Methods Hidden for Pickup","Metodi di pagamento nascosti per il ritiro"
 "These methods are not offered for pickup orders.","Questi metodi non sono offerti per gli ordini con ritiro."
+"Invalid pickup location code ""%1"".","Codice della sede di ritiro ""%1"" non valido."
+"The pickup location rows are not valid JSON.","Le righe delle sedi di ritiro non sono un JSON valido."
+"The pickup location rows must be a JSON list of rows.","Le righe delle sedi di ritiro devono essere un elenco JSON di righe."
