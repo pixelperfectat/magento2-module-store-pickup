@@ -3,6 +3,7 @@
 namespace PixelPerfect\StorePickup\Test\Unit\I18n;
 
 use Magento\Framework\File\Csv;
+use Magento\Framework\Filesystem\Driver\File;
 use PHPUnit\Framework\TestCase;
 
 class TranslationFilesTest extends TestCase
@@ -17,7 +18,7 @@ class TranslationFilesTest extends TestCase
         $file = dirname(__DIR__, 3) . '/src/i18n/' . $locale . '.csv';
         $this->assertFileExists($file);
 
-        $csv = new Csv(new \Magento\Framework\Filesystem\Driver\File());
+        $csv = new Csv(new File());
         $map = [];
         foreach ($csv->getData($file) as $row) {
             $this->assertCount(2, $row, $locale . ' has a row that is not source,translation: ' . implode('|', $row));

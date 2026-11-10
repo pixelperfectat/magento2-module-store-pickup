@@ -4,10 +4,12 @@
         "directories": [
             "src/Api",
             "src/Controller",
+            "src/Exception",
             "src/Model",
             "src/Observer",
             "src/Plugin",
-            "src/Service"
+            "src/Service",
+            "src/Setup"
         ]
     },
     "mutators": {
