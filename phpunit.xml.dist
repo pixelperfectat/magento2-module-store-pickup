@@ -6,6 +6,7 @@
     <coverage>
         <include>
             <directory suffix=".php">src/Api</directory>
+            <directory suffix=".php">src/Controller</directory>
             <directory suffix=".php">src/Model</directory>
             <directory suffix=".php">src/Observer</directory>
             <directory suffix=".php">src/Plugin</directory>

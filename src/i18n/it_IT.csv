@@ -54,3 +54,8 @@
 "You can check the status of your order by <a href=""%account_url"">logging into your account</a>.","Puoi controllare lo stato del tuo ordine <a href=""%account_url"">accedendo al tuo account</a>."
 "Telephone: %telephone","Telefono: %telephone"
 "Please bring your order number #%increment_id when you collect your order.","Al momento del ritiro indica il numero d'ordine #%increment_id."
+"Create the shipment if needed, set the status and email the customer that the order is ready for pickup?","Creare la spedizione se necessario, impostare lo stato e avvisare il cliente via e-mail che l'ordine è pronto per il ritiro?"
+"The order was marked as ready for pickup.","L'ordine è stato segnato come pronto per il ritiro."
+"Order %1 was marked as ready for pickup, but the email could not be sent.","L'ordine %1 è stato segnato come pronto per il ritiro, ma non è stato possibile inviare l'e-mail."
+"Order %1: %2","Ordine %1: %2"
+"%1 order(s) were marked as ready for pickup.","%1 ordine/i segnato/i come pronto/i per il ritiro."

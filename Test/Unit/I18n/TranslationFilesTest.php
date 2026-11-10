@@ -40,6 +40,20 @@ class TranslationFilesTest extends TestCase
         }
     }
 
+    public function testTheFailedEmailWarningIsTranslated(): void
+    {
+        $source = 'Order %1 was marked as ready for pickup, but the email could not be sent.';
+        $expected = [
+            'en_US' => $source,
+            'de_DE' => 'Bestellung %1 wurde als abholbereit markiert, aber die E-Mail konnte nicht gesendet werden.',
+            'it_IT' => "L'ordine %1 è stato segnato come pronto per il ritiro, ma non è stato possibile inviare l'e-mail.",
+        ];
+
+        foreach ($expected as $locale => $translation) {
+            $this->assertSame($translation, $this->load($locale)[$source] ?? null, $locale);
+        }
+    }
+
     public function testNoTranslationIsEmpty(): void
     {
         foreach (self::LOCALES as $locale) {

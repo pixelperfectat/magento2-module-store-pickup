@@ -54,3 +54,8 @@
 "You can check the status of your order by <a href=""%account_url"">logging into your account</a>.","You can check the status of your order by <a href=""%account_url"">logging into your account</a>."
 "Telephone: %telephone","Telephone: %telephone"
 "Please bring your order number #%increment_id when you collect your order.","Please bring your order number #%increment_id when you collect your order."
+"Create the shipment if needed, set the status and email the customer that the order is ready for pickup?","Create the shipment if needed, set the status and email the customer that the order is ready for pickup?"
+"The order was marked as ready for pickup.","The order was marked as ready for pickup."
+"Order %1 was marked as ready for pickup, but the email could not be sent.","Order %1 was marked as ready for pickup, but the email could not be sent."
+"Order %1: %2","Order %1: %2"
+"%1 order(s) were marked as ready for pickup.","%1 order(s) were marked as ready for pickup."

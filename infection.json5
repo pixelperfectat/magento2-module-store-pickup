@@ -3,6 +3,7 @@
     "source": {
         "directories": [
             "src/Api",
+            "src/Controller",
             "src/Model",
             "src/Observer",
             "src/Plugin",

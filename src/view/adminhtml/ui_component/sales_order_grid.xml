@@ -1,6 +1,17 @@
 <?xml version="1.0"?>
 <listing xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Ui:etc/ui_configuration.xsd">
+    <listingToolbar name="listing_top">
+        <massaction name="listing_massaction">
+            <action name="ready_for_pickup">
+                <settings>
+                    <url path="pp_store_pickup/order/massReadyForPickup"/>
+                    <type>ready_for_pickup</type>
+                    <label translate="true">Ready for Pickup</label>
+                </settings>
+            </action>
+        </massaction>
+    </listingToolbar>
     <columns name="sales_order_columns">
         <column name="pp_pickup_location_code">
             <settings>
