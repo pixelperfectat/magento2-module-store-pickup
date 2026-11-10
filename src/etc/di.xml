@@ -9,6 +9,8 @@
                 type="PixelPerfect\StorePickup\Service\LocationProvider\CompositeLocationProvider"/>
     <preference for="PixelPerfect\StorePickup\Api\Service\AvailabilityCheckerInterface"
                 type="PixelPerfect\StorePickup\Service\Availability\CompositeAvailabilityChecker"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\PickupAddressApplierInterface"
+                type="PixelPerfect\StorePickup\Service\PickupAddressApplier"/>
 
     <type name="PixelPerfect\StorePickup\Service\LocationProvider\CompositeLocationProvider">
         <arguments>
@@ -54,6 +56,11 @@
     <type name="Magento\Sales\Api\OrderRepositoryInterface">
         <plugin name="pp_store_pickup_location_code"
                 type="PixelPerfect\StorePickup\Plugin\Sales\Api\OrderRepositoryInterface\PickupLocationCodeExtension"/>
+    </type>
+    <type name="PixelPerfect\StorePickup\Service\PickupAddressApplier">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
     </type>
     <virtualType name="Magento\Sales\Model\ResourceModel\Order\Grid" type="Magento\Sales\Model\ResourceModel\Grid">
         <arguments>
