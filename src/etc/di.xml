@@ -5,6 +5,22 @@
                 type="PixelPerfect\StorePickup\Service\Config"/>
     <preference for="PixelPerfect\StorePickup\Api\Service\PickupMethodResolverInterface"
                 type="PixelPerfect\StorePickup\Service\PickupMethodResolver"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\LocationProviderInterface"
+                type="PixelPerfect\StorePickup\Service\LocationProvider\CompositeLocationProvider"/>
+
+    <type name="PixelPerfect\StorePickup\Service\LocationProvider\CompositeLocationProvider">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+            <argument name="providers" xsi:type="array">
+                <item name="config" xsi:type="object" sortOrder="10">PixelPerfect\StorePickup\Service\LocationProvider\ConfigLocationProvider</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Service\LocationProvider\ConfigLocationProvider">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
 
     <virtualType name="PixelPerfect\StorePickup\Logger\Handler"
                  type="Magento\Framework\Logger\Handler\Base">
