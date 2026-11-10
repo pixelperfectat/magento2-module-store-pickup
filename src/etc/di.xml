@@ -62,6 +62,30 @@
             <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
         </arguments>
     </type>
+    <type name="PixelPerfect\StorePickup\Plugin\Quote\Model\QuoteManagement\ApplyPickupAddressBeforeSubmit">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Plugin\Checkout\Model\ShippingInformationManagement\ApplyPickupAddressToShippingInformation">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Observer\SyncPickupAddressOnCheckout">
+        <arguments>
+            <argument name="checkoutSession" xsi:type="object">Magento\Checkout\Model\Session\Proxy</argument>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="Magento\Quote\Model\QuoteManagement">
+        <plugin name="pp_store_pickup_apply_address"
+                type="PixelPerfect\StorePickup\Plugin\Quote\Model\QuoteManagement\ApplyPickupAddressBeforeSubmit"/>
+    </type>
+    <type name="Magento\Checkout\Model\ShippingInformationManagement">
+        <plugin name="pp_store_pickup_apply_address"
+                type="PixelPerfect\StorePickup\Plugin\Checkout\Model\ShippingInformationManagement\ApplyPickupAddressToShippingInformation"/>
+    </type>
     <virtualType name="Magento\Sales\Model\ResourceModel\Order\Grid" type="Magento\Sales\Model\ResourceModel\Grid">
         <arguments>
             <argument name="columns" xsi:type="array">
