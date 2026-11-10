@@ -43,6 +43,7 @@
 "Comma-separated.","Durch Kommas getrennt."
 "Send Email Copy Method","Versandart der E-Mail-Kopie"
 "Ready for Pickup","Abholbereit"
+"Ready for Pickup for Guest","Abholbereit für Gäste"
 "Order %1 is not a store pickup order.","Die Bestellung %1 ist keine Abholbestellung."
 "Order %1 has already been marked as ready for pickup.","Die Bestellung %1 wurde bereits als abholbereit markiert."
 "Order %1 cannot be marked as ready for pickup in state ""%2"".","Die Bestellung %1 kann im Zustand ""%2"" nicht als abholbereit markiert werden."

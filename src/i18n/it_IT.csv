@@ -43,6 +43,7 @@
 "Comma-separated.","Separati da virgola."
 "Send Email Copy Method","Metodo di invio della copia e-mail"
 "Ready for Pickup","Pronto per il ritiro"
+"Ready for Pickup for Guest","Pronto per il ritiro per ospiti"
 "Order %1 is not a store pickup order.","L'ordine %1 non è un ordine con ritiro in negozio."
 "Order %1 has already been marked as ready for pickup.","L'ordine %1 è già stato segnato come pronto per il ritiro."
 "Order %1 cannot be marked as ready for pickup in state ""%2"".","L'ordine %1 non può essere segnato come pronto per il ritiro nello stato ""%2""."

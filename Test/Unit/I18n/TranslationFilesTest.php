@@ -76,6 +76,39 @@ class TranslationFilesTest extends TestCase
         }
     }
 
+    public function testEveryEmailTemplateLabelIsTranslated(): void
+    {
+        $file = dirname(__DIR__, 3) . '/src/etc/email_templates.xml';
+        $xml = simplexml_load_string((new File())->fileGetContents($file));
+        $this->assertNotFalse($xml);
+        $labels = [];
+        foreach ($xml->template as $template) {
+            $labels[] = (string) $template['label'];
+        }
+        $this->assertNotEmpty($labels);
+
+        foreach (self::LOCALES as $locale) {
+            $map = $this->load($locale);
+            foreach ($labels as $label) {
+                $this->assertArrayHasKey($label, $map, $locale . ' misses the email template label "' . $label . '"');
+            }
+        }
+    }
+
+    public function testTheGuestTemplateLabelIsTranslated(): void
+    {
+        $source = 'Ready for Pickup for Guest';
+        $expected = [
+            'en_US' => $source,
+            'de_DE' => 'Abholbereit für Gäste',
+            'it_IT' => 'Pronto per il ritiro per ospiti',
+        ];
+
+        foreach ($expected as $locale => $translation) {
+            $this->assertSame($translation, $this->load($locale)[$source] ?? null, $locale);
+        }
+    }
+
     public function testNoTranslationIsEmpty(): void
     {
         foreach (self::LOCALES as $locale) {
