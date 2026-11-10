@@ -234,6 +234,37 @@ class ApplyPickupAddressToShippingInformationTest extends TestCase
         $this->assertSame($before, $address->getData());
     }
 
+    public function testStringCartIdFromTheCoreCallerIsAccepted(): void
+    {
+        $quote = $this->quote([]);
+        $address = $this->address();
+
+        $this->plugin->beforeSaveAddressInformation(
+            $this->subject,
+            '5',
+            $this->information($address, 'pppickup', 'main')
+        );
+
+        $this->assertSame('Vienna', $address->getCity());
+        $this->assertSame('main', $quote->getData('pp_pickup_location_code'));
+    }
+
+    public function testMissingCartIdIsLoggedAndTheCallGoesAhead(): void
+    {
+        $this->cartRepository->method('getActive')->with(0)
+            ->willThrowException(new \RuntimeException('no cart 0'));
+        $this->logger->expects($this->once())->method('error')
+            ->with('Pickup address could not be applied to the shipping information: no cart 0');
+
+        $result = $this->plugin->beforeSaveAddressInformation(
+            $this->subject,
+            null,
+            $this->information($this->address(), 'pppickup', 'main')
+        );
+
+        $this->assertNull($result);
+    }
+
     public function testErrorsAreLoggedAndTheCallGoesAhead(): void
     {
         $this->cartRepository->method('getActive')->willThrowException(new \RuntimeException('no cart'));

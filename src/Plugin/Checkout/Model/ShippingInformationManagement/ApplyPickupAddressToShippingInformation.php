@@ -38,19 +38,20 @@ class ApplyPickupAddressToShippingInformation
      * Swap the posted shipping address to the location for a pickup method; clear the code for any other method.
      *
      * The quote comes from `getActive()`, which returns the cached instance the subject saves afterwards.
+     * Core declares `$cartId` untyped and its callers pass the cart id as a string, so it is cast inside the guard.
      *
      * @param ShippingInformationManagement $subject
-     * @param int $cartId
+     * @param mixed $cartId
      * @param ShippingInformationInterface $addressInformation
      * @return null
      */
     public function beforeSaveAddressInformation(
         ShippingInformationManagement $subject,
-        int $cartId,
+        mixed $cartId,
         ShippingInformationInterface $addressInformation
     ): null {
         try {
-            $quote = $this->cartRepository->getActive($cartId);
+            $quote = $this->cartRepository->getActive((int) $cartId);
             if (!$quote instanceof Quote) {
                 return null;
             }
