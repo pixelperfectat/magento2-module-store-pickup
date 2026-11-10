@@ -72,7 +72,9 @@ address, so they survive the address swap described below. The country restricti
 | Sort Order | Ascending; ties are sorted by code. |
 | Active | Inactive locations get no rate. |
 
-Saving is refused when a code is invalid or repeated, or when name, street, postcode, city or country is empty.
+Saving is refused when a code is invalid or repeated, or when name, street, postcode, city or country is empty. The
+checks run on every save through the configuration model: the admin form, `bin/magento config:set` (the value is
+the JSON text of the rows) and code. Text that is not a JSON list of rows is refused too.
 
 ### Store-view texts
 
@@ -86,6 +88,9 @@ The code is stored on the quote and the order, so it must stay stable. Renaming 
 carts or open orders (any state except complete, closed or canceled) still use is refused with an error that tells
 you to deactivate the location instead. The guard also applies when an admin reverts a website or store view scope
 to "Use default" and that would drop such a code. Name, address, hours and note can change freely.
+
+Values pinned with `config:set --lock-env` or `--lock-config` live in `app/etc` and bypass the database and the
+guard; change them with care.
 
 The usage check is global: it counts carts and orders of all websites, not only the website you are editing.
 
