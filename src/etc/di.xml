@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <preference for="PixelPerfect\StorePickup\Api\Service\ConfigInterface"
+                type="PixelPerfect\StorePickup\Service\Config"/>
+
+    <virtualType name="PixelPerfect\StorePickup\Logger\Handler"
+                 type="Magento\Framework\Logger\Handler\Base">
+        <arguments>
+            <argument name="fileName" xsi:type="string">/var/log/store_pickup.log</argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="PixelPerfect\StorePickup\Logger"
+                 type="Magento\Framework\Logger\Monolog">
+        <arguments>
+            <argument name="name" xsi:type="string">store_pickup</argument>
+            <argument name="handlers" xsi:type="array">
+                <item name="system" xsi:type="object">PixelPerfect\StorePickup\Logger\Handler</item>
+            </argument>
+        </arguments>
+    </virtualType>
+</config>

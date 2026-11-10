@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <carriers>
+            <pppickup>
+                <active>0</active>
+                <model>PixelPerfect\StorePickup\Model\Carrier\StorePickup</model>
+                <title>Store Pickup</title>
+                <price>0</price>
+                <sort_order>0</sort_order>
+                <sallowspecific>0</sallowspecific>
+                <showmethod>0</showmethod>
+                <specificerrmsg>This shipping method is not available.</specificerrmsg>
+            </pppickup>
+        </carriers>
+        <pp_store_pickup>
+            <ready_email>
+                <enabled>1</enabled>
+                <identity>sales</identity>
+                <template>pp_store_pickup_ready_email_template</template>
+                <guest_template>pp_store_pickup_ready_email_guest_template</guest_template>
+                <copy_method>bcc</copy_method>
+            </ready_email>
+            <payment>
+                <pickup_only_methods></pickup_only_methods>
+                <hidden_for_pickup></hidden_for_pickup>
+            </payment>
+        </pp_store_pickup>
+    </default>
+</config>
