@@ -2,9 +2,12 @@
 
 namespace PixelPerfect\StorePickup\Plugin\Quote\Model\QuoteManagement;
 
+use Magento\Quote\Api\Data\CartInterface;
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\QuoteManagement;
 use PixelPerfect\StorePickup\Api\Service\PickupAddressApplierInterface;
+use PixelPerfect\StorePickup\Api\Service\PickupMethodResolverInterface;
+use PixelPerfect\StorePickup\Service\ExtensionAttribute\PickupLocationCodeMirror;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -20,10 +23,14 @@ class ApplyPickupAddressBeforeSubmit
      * Constructor.
      *
      * @param PickupAddressApplierInterface $applier
+     * @param PickupMethodResolverInterface $methodResolver
+     * @param PickupLocationCodeMirror $mirror
      * @param LoggerInterface $logger
      */
     public function __construct(
         private readonly PickupAddressApplierInterface $applier,
+        private readonly PickupMethodResolverInterface $methodResolver,
+        private readonly PickupLocationCodeMirror $mirror,
         private readonly LoggerInterface $logger
     ) {
     }
@@ -33,6 +40,12 @@ class ApplyPickupAddressBeforeSubmit
      *
      * The snapshot is kept when nothing was applied (for example a location disabled after it was selected): the
      * submit then fails validation and the next checkout load restores the earlier address from it.
+     *
+     * A location code left on a quote whose method was changed away from pickup without a checkout reload is
+     * cleared, so it is not copied onto a non-pickup order. The address and the snapshot stay as they are. An
+     * empty method is left alone: the submit fails validation then, and the code is what lets the next checkout
+     * load restore the earlier address. The cart extension attribute is refreshed from the column, because the
+     * quote-to-order copy also copies the extension attribute and a stale one would win on the order.
      *
      * @param QuoteManagement $subject
      * @param Quote $quote
@@ -44,7 +57,10 @@ class ApplyPickupAddressBeforeSubmit
         try {
             if ($this->applier->apply($quote)) {
                 $quote->setData(PickupAddressApplierInterface::SNAPSHOT_FIELD, null);
+            } elseif ($this->isNonPickupQuote($quote)) {
+                $quote->setData(PickupAddressApplierInterface::LOCATION_CODE_FIELD, null);
             }
+            $this->mirror->mirror($quote, CartInterface::class);
         } catch (\Throwable $e) {
             $this->logger->error(
                 'Pickup address could not be applied before the order was submitted: ' . $e->getMessage()
@@ -52,5 +68,21 @@ class ApplyPickupAddressBeforeSubmit
         }
 
         return null;
+    }
+
+    /**
+     * Whether the quote is virtual or has a shipping method that is set and is not a pickup method.
+     *
+     * @param Quote $quote
+     * @return bool
+     */
+    private function isNonPickupQuote(Quote $quote): bool
+    {
+        if ($quote->isVirtual()) {
+            return true;
+        }
+        $method = (string) $quote->getShippingAddress()->getShippingMethod();
+
+        return $method !== '' && !$this->methodResolver->isPickupMethod($method);
     }
 }

@@ -318,6 +318,38 @@ class AddressSwapAtSubmitTest extends TestCase
     #[DataFixture(SetShippingAddress::class, ['cart_id' => '$cart.id$', 'address' => self::SHIPPING])]
     #[DataFixture(SetGuestEmail::class, ['cart_id' => '$cart.id$', 'email' => 'jane.doe@example.com'])]
     #[DataFixture(SetPaymentMethod::class, ['cart_id' => '$cart.id$', 'method' => 'checkmo'])]
+    public function testSwitchingAwayFromPickupWithoutReloadLeavesNoCodeOnTheOrder(): void
+    {
+        $objectManager = Bootstrap::getObjectManager();
+        $cart = $this->cart();
+        $this->selectPickup($cart, 'main');
+        self::assertSame('main', $cart->getData('pp_pickup_location_code'));
+
+        // the method changes outside ShippingInformationManagement and no checkout reload runs sync()
+        $cart->getShippingAddress()->setCollectShippingRates(true);
+        $cart->setTotalsCollectedFlag(false);
+        $objectManager->get(ShippingMethodManagementInterface::class)
+            ->set((int) $cart->getId(), 'flatrate', 'flatrate');
+        self::assertSame('main', $this->cart()->getData('pp_pickup_location_code'));
+
+        $order = $this->placeOrder($this->cart());
+
+        self::assertSame('flatrate_flatrate', $order->getShippingMethod());
+        self::assertInstanceOf(DataObject::class, $order);
+        self::assertNull($order->getData('pp_pickup_location_code'));
+        self::assertNull($order->getExtensionAttributes()?->getPpPickupLocationCode());
+        self::assertNull($this->gridLocationCode((int) $order->getEntityId()));
+    }
+
+    #[Config('carriers/pppickup/active', '1', 'store', 'default')]
+    #[Config('carriers/pppickup/locations', self::LOCATIONS, 'store', 'default')]
+    #[DataFixture(ProductFixture::class, as: 'product')]
+    #[DataFixture(GuestCart::class, as: 'cart')]
+    #[DataFixture(AddProductToCart::class, ['cart_id' => '$cart.id$', 'product_id' => '$product.id$'])]
+    #[DataFixture(SetBillingAddress::class, ['cart_id' => '$cart.id$', 'address' => self::BILLING])]
+    #[DataFixture(SetShippingAddress::class, ['cart_id' => '$cart.id$', 'address' => self::SHIPPING])]
+    #[DataFixture(SetGuestEmail::class, ['cart_id' => '$cart.id$', 'email' => 'jane.doe@example.com'])]
+    #[DataFixture(SetPaymentMethod::class, ['cart_id' => '$cart.id$', 'method' => 'checkmo'])]
     public function testDisabledLocationFailsWithStandardError(): void
     {
         $objectManager = Bootstrap::getObjectManager();
