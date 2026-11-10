@@ -15,6 +15,10 @@
                 type="PixelPerfect\StorePickup\Service\OrderPlacement\CompositeOrderPlacementProcessor"/>
     <preference for="PixelPerfect\StorePickup\Api\Service\LocationUsageInterface"
                 type="PixelPerfect\StorePickup\Service\LocationUsage"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\ReadyForPickupServiceInterface"
+                type="PixelPerfect\StorePickup\Service\ReadyForPickup\ReadyForPickupService"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\ShipmentArgumentsBuilderInterface"
+                type="PixelPerfect\StorePickup\Service\ReadyForPickup\ShipmentArgumentsBuilder"/>
     <preference for="PixelPerfect\StorePickup\Api\Service\ReadyForPickupEmailSenderInterface"
                 type="PixelPerfect\StorePickup\Service\ReadyForPickup\EmailSender"/>
 
