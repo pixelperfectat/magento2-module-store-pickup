@@ -167,8 +167,10 @@ members in `di.xml`. Use `sortOrder` on the items to control the order.
 
 ### Location providers
 
-`LocationProviderInterface` supplies the locations. The composite merges all providers; on a duplicate code the
-first provider wins and the clash is logged. The `config` provider reads the admin fields.
+`LocationProviderInterface` supplies the locations. The composite merges all providers. The first provider in
+`di.xml` order that knows a code owns it, whether that location is active or not: a later provider's location with
+the same code is ignored and the clash is logged once. So a code the owner has inactive gets no rate, even when a
+later provider has it active. The `config` provider reads the admin fields.
 
 ```xml
 <type name="PixelPerfect\StorePickup\Service\LocationProvider\CompositeLocationProvider">

@@ -20,24 +20,111 @@ class CompositeLocationProviderTest extends TestCase
         $this->logger = $this->createMock(LoggerInterface::class);
     }
 
-    private function location(string $code, string $name, int $sortOrder = 0): PickupLocationInterface
-    {
-        return new PickupLocation($code, $name, ['1 Example Street'], '1010', 'Vienna', 'AT', sortOrder: $sortOrder);
+    private function location(
+        string $code,
+        string $name,
+        int $sortOrder = 0,
+        bool $active = true
+    ): PickupLocationInterface {
+        return new PickupLocation(
+            $code,
+            $name,
+            ['1 Example Street'],
+            '1010',
+            'Vienna',
+            'AT',
+            sortOrder: $sortOrder,
+            active: $active
+        );
     }
 
     /**
+     * A provider that lists its active locations and resolves active and inactive ones by code.
+     *
      * @param array<string, PickupLocationInterface> $locations
      * @return LocationProviderInterface&MockObject
      */
     private function provider(array $locations): LocationProviderInterface
     {
         $provider = $this->createMock(LocationProviderInterface::class);
-        $provider->method('getLocations')->willReturn($locations);
+        $provider->method('getLocations')->willReturn(array_filter(
+            $locations,
+            static fn (PickupLocationInterface $location): bool => $location->isActive()
+        ));
         $provider->method('getLocation')->willReturnCallback(
             static fn (string $code): ?PickupLocationInterface => $locations[$code] ?? null
         );
 
         return $provider;
+    }
+
+    public function testEarlierProviderWithAnInactiveCodeOwnsIt(): void
+    {
+        $inactive = $this->location('x', 'First', active: false);
+        $other = $this->location('other', 'Other');
+        $composite = new CompositeLocationProvider($this->logger, [
+            'config' => $this->provider(['x' => $inactive]),
+            'extra' => $this->provider(['x' => $this->location('x', 'Second'), 'other' => $other]),
+        ]);
+        $this->logger->expects($this->once())->method('warning')->with(
+            'Pickup location code "x" from provider "extra" is already taken; ignored.'
+        );
+
+        $this->assertSame(['other' => $other], $composite->getLocations(1));
+        $this->assertSame(['other' => $other], $composite->getLocations(1));
+        $this->assertSame($inactive, $composite->getLocation('x', 1));
+    }
+
+    public function testLaterProviderWithAnInactiveCodeDoesNotHideTheOwner(): void
+    {
+        $active = $this->location('x', 'First');
+        $composite = new CompositeLocationProvider($this->logger, [
+            'config' => $this->provider(['x' => $active]),
+            'extra' => $this->provider(['x' => $this->location('x', 'Second', active: false)]),
+        ]);
+        $this->logger->expects($this->never())->method('warning');
+
+        $this->assertSame(['x' => $active], $composite->getLocations(1));
+        $this->assertSame($active, $composite->getLocation('x', 1));
+    }
+
+    public function testOwnershipIsCheckedInTheRequestedStore(): void
+    {
+        $owner = $this->createMock(LocationProviderInterface::class);
+        $owner->method('getLocations')->willReturn([]);
+        $owner->method('getLocation')->willReturnCallback(
+            fn (string $code, int $storeId): ?PickupLocationInterface => $storeId === 2
+                ? $this->location($code, 'First', active: false)
+                : null
+        );
+        $second = $this->location('x', 'Second');
+        $composite = new CompositeLocationProvider($this->logger, [
+            'config' => $owner,
+            'extra' => $this->provider(['x' => $second]),
+        ]);
+
+        $this->assertSame(['x' => $second], $composite->getLocations(1));
+        $this->assertSame([], $composite->getLocations(2));
+    }
+
+    public function testEarlierProviderThatFailsToResolveACodeDoesNotOwnIt(): void
+    {
+        $broken = $this->createMock(LocationProviderInterface::class);
+        $broken->method('getLocations')->willReturn([]);
+        $broken->method('getLocation')->willThrowException(new \RuntimeException('boom'));
+        $second = $this->location('x', 'Second');
+        $composite = new CompositeLocationProvider($this->logger, [
+            'broken' => $broken,
+            'extra' => $this->provider(['x' => $second]),
+        ]);
+        $this->logger->expects($this->never())->method('warning');
+        $this->logger->expects($this->exactly(2))->method('error')->with(
+            'Pickup location provider "broken" failed and is skipped: boom',
+            $this->callback(static fn (array $context): bool => $context['exception'] instanceof \RuntimeException)
+        );
+
+        $this->assertSame(['x' => $second], $composite->getLocations(1));
+        $this->assertSame($second, $composite->getLocation('x', 1));
     }
 
     public function testDuplicateCodeFirstProviderWinsAndWarnsOncePerRequest(): void
@@ -89,13 +176,32 @@ class CompositeLocationProviderTest extends TestCase
             'broken' => $broken,
             'config' => $this->provider(['main' => $good]),
         ]);
-        $this->logger->expects($this->exactly(2))->method('error')->with(
+        // getLocations() fails, the ownership check of "main" fails, getLocation() fails.
+        $this->logger->expects($this->exactly(3))->method('error')->with(
             'Pickup location provider "broken" failed and is skipped: boom',
             $this->callback(static fn (array $context): bool => $context['exception'] instanceof \RuntimeException)
         );
 
         $this->assertSame(['main' => $good], $composite->getLocations(1));
         $this->assertSame($good, $composite->getLocation('main', 1));
+    }
+
+    public function testProviderWhoseListFailsStillOwnsTheCodesItResolves(): void
+    {
+        $owned = $this->location('x', 'First', active: false);
+        $broken = $this->createMock(LocationProviderInterface::class);
+        $broken->method('getLocations')->willThrowException(new \RuntimeException('boom'));
+        $broken->method('getLocation')->willReturnCallback(
+            static fn (string $code): ?PickupLocationInterface => $code === 'x' ? $owned : null
+        );
+        $composite = new CompositeLocationProvider($this->logger, [
+            'broken' => $broken,
+            'extra' => $this->provider(['x' => $this->location('x', 'Second')]),
+        ]);
+        $this->logger->expects($this->once())->method('warning');
+
+        $this->assertSame([], $composite->getLocations(1));
+        $this->assertSame($owned, $composite->getLocation('x', 1));
     }
 
     public function testNoProvidersYieldsNothing(): void

@@ -7,7 +7,10 @@ use PixelPerfect\StorePickup\Api\Service\LocationProviderInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Merges the locations of all registered providers. On a duplicate code the first provider wins.
+ * Merges the locations of all registered providers.
+ *
+ * The first provider in `di.xml` order that knows a code owns it, active or not. A later provider's location with
+ * the same code is ignored, so a code gets a rate only when its owner's record is active.
  */
 class CompositeLocationProvider implements LocationProviderInterface
 {
@@ -37,16 +40,17 @@ class CompositeLocationProvider implements LocationProviderInterface
 
         $merged = [];
         $seen = [];
+        $checked = [];
         foreach ($this->providers as $name => $provider) {
             try {
                 $locations = $provider->getLocations($storeId);
             } catch (\Throwable $e) {
                 $this->logFailure((string) $name, $e);
-                continue;
+                $locations = [];
             }
             foreach ($locations as $location) {
                 $code = $location->getCode();
-                if (in_array($code, $seen, true)) {
+                if (in_array($code, $seen, true) || $this->isOwnedEarlier($code, $storeId, $checked)) {
                     $this->logger->warning(sprintf(
                         'Pickup location code "%s" from provider "%s" is already taken; ignored.',
                         $code,
@@ -57,6 +61,7 @@ class CompositeLocationProvider implements LocationProviderInterface
                 $seen[] = $code;
                 $merged[] = $location;
             }
+            $checked[(string) $name] = $provider;
         }
         usort($merged, static fn (PickupLocationInterface $a, PickupLocationInterface $b): int =>
             $a->getSortOrder() <=> $b->getSortOrder() ?: strcmp($a->getCode(), $b->getCode()));
@@ -87,6 +92,29 @@ class CompositeLocationProvider implements LocationProviderInterface
         }
 
         return null;
+    }
+
+    /**
+     * Whether one of the providers asked before knows the code, active or not.
+     *
+     * @param string $code
+     * @param int $storeId
+     * @param array<string, LocationProviderInterface> $earlier
+     * @return bool
+     */
+    private function isOwnedEarlier(string $code, int $storeId, array $earlier): bool
+    {
+        foreach ($earlier as $name => $provider) {
+            try {
+                if ($provider->getLocation($code, $storeId) !== null) {
+                    return true;
+                }
+            } catch (\Throwable $e) {
+                $this->logFailure($name, $e);
+            }
+        }
+
+        return false;
     }
 
     /**
