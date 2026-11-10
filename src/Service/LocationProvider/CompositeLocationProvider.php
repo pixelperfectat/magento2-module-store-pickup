@@ -36,6 +36,7 @@ class CompositeLocationProvider implements LocationProviderInterface
         }
 
         $merged = [];
+        $seen = [];
         foreach ($this->providers as $name => $provider) {
             try {
                 $locations = $provider->getLocations($storeId);
@@ -43,8 +44,9 @@ class CompositeLocationProvider implements LocationProviderInterface
                 $this->logFailure((string) $name, $e);
                 continue;
             }
-            foreach ($locations as $code => $location) {
-                if (isset($merged[$code])) {
+            foreach ($locations as $location) {
+                $code = $location->getCode();
+                if (in_array($code, $seen, true)) {
                     $this->logger->warning(sprintf(
                         'Pickup location code "%s" from provider "%s" is already taken; ignored.',
                         $code,
@@ -52,13 +54,19 @@ class CompositeLocationProvider implements LocationProviderInterface
                     ));
                     continue;
                 }
-                $merged[$code] = $location;
+                $seen[] = $code;
+                $merged[] = $location;
             }
         }
-        uasort($merged, static fn (PickupLocationInterface $a, PickupLocationInterface $b): int =>
-            [$a->getSortOrder(), $a->getCode()] <=> [$b->getSortOrder(), $b->getCode()]);
+        usort($merged, static fn (PickupLocationInterface $a, PickupLocationInterface $b): int =>
+            $a->getSortOrder() <=> $b->getSortOrder() ?: strcmp($a->getCode(), $b->getCode()));
+        $keyed = [];
+        foreach ($merged as $location) {
+            // The key is only a convenience; PHP turns a numeric code into an int key.
+            $keyed[$location->getCode()] = $location;
+        }
 
-        return $this->cache[$storeId] = $merged;
+        return $this->cache[$storeId] = $keyed;
     }
 
     /**

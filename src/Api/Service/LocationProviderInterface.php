@@ -14,6 +14,9 @@ interface LocationProviderInterface
     /**
      * Active pickup locations of a store view, keyed by code, sorted by sort order and then by code.
      *
+     * PHP turns a numeric code such as "7" into an int array key, so consumers must read the code from
+     * `getCode()`, never from the key.
+     *
      * @param int $storeId
      * @return array<string, PickupLocationInterface>
      */

@@ -285,4 +285,40 @@ class ConfigLocationProviderTest extends TestCase
         $this->assertSame('Main Store', $location->getName());
         $this->assertSame('Vienna', $location->getCity());
     }
+
+    public function testNumericCodeKeepsItsStringTypeAndTakesItsStoreViewText(): void
+    {
+        $this->stubConfig(
+            ['_1' => $this->row('7')],
+            ['_9' => ['code' => '7', 'name' => 'Negozio sette']]
+        );
+
+        $locations = $this->provider->getLocations(self::STORE_ID);
+
+        $this->assertCount(1, $locations);
+        $location = array_values($locations)[0];
+        $this->assertSame('7', $location->getCode());
+        $this->assertSame('Negozio sette', $location->getName());
+        $this->assertSame('7', $this->provider->getLocation('7', self::STORE_ID)?->getCode());
+    }
+
+    public function testRepeatedNumericCodeIsSkipped(): void
+    {
+        $this->stubConfig(['_1' => $this->row('7'), '_2' => $this->row('7', ['name' => 'Again'])]);
+        $this->logger->expects($this->once())->method('warning');
+
+        $this->assertCount(1, $this->provider->getLocations(self::STORE_ID));
+    }
+
+    public function testCodesAtEqualSortOrderCompareAsStrings(): void
+    {
+        $this->stubConfig(['_1' => $this->row('9'), '_2' => $this->row('10')]);
+
+        $codes = array_map(
+            static fn ($location): string => $location->getCode(),
+            array_values($this->provider->getLocations(self::STORE_ID))
+        );
+
+        $this->assertSame(['10', '9'], $codes);
+    }
 }

@@ -56,7 +56,13 @@ class ConfigLocationProvider implements LocationProviderInterface
      */
     public function getLocation(string $code, int $storeId): ?PickupLocationInterface
     {
-        return $this->load($storeId)[$code] ?? null;
+        foreach ($this->load($storeId) as $location) {
+            if ($location->getCode() === $code) {
+                return $location;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -73,16 +79,24 @@ class ConfigLocationProvider implements LocationProviderInterface
 
         $texts = $this->readTexts($storeId);
         $locations = [];
+        $seen = [];
         foreach ($this->readRows(self::XML_PATH_LOCATIONS, $storeId) as $row) {
             $code = $this->string($row, 'code');
-            if (!$this->resolver->isValidLocationCode($code) || isset($locations[$code])) {
+            if (!$this->resolver->isValidLocationCode($code) || in_array($code, $seen, true)) {
                 $this->logger->warning(sprintf('Ignoring pickup location row with unusable code "%s".', $code));
                 continue;
             }
-            $locations[$code] = $this->createLocation($code, $row, $texts[$code] ?? []);
+            $seen[] = $code;
+            $locations[] = $this->createLocation($code, $row, $this->findText($texts, $code));
         }
-        uasort($locations, static fn (PickupLocationInterface $a, PickupLocationInterface $b): int =>
-            [$a->getSortOrder(), $a->getCode()] <=> [$b->getSortOrder(), $b->getCode()]);
+        usort($locations, static fn (PickupLocationInterface $a, PickupLocationInterface $b): int =>
+            $a->getSortOrder() <=> $b->getSortOrder() ?: strcmp($a->getCode(), $b->getCode()));
+        $keyed = [];
+        foreach ($locations as $location) {
+            // The key is only a convenience; PHP turns a numeric code into an int key.
+            $keyed[$location->getCode()] = $location;
+        }
+        $locations = $keyed;
 
         return $this->cache[$storeId] = $locations;
     }
@@ -120,19 +134,32 @@ class ConfigLocationProvider implements LocationProviderInterface
     }
 
     /**
-     * Text rows of the store view, keyed by code.
+     * Text rows of the store view in stored order.
      *
      * @param int $storeId
-     * @return array<string, array<string, mixed>>
+     * @return array<array-key, array<string, mixed>>
      */
     private function readTexts(int $storeId): array
     {
-        $texts = [];
-        foreach ($this->readRows(self::XML_PATH_LOCATION_TEXTS, $storeId) as $row) {
-            $texts[$this->string($row, 'code')] ??= $row;
+        return $this->readRows(self::XML_PATH_LOCATION_TEXTS, $storeId);
+    }
+
+    /**
+     * First text row of a code, compared as strings; empty when there is none.
+     *
+     * @param array<array-key, array<string, mixed>> $texts
+     * @param string $code
+     * @return array<string, mixed>
+     */
+    private function findText(array $texts, string $code): array
+    {
+        foreach ($texts as $row) {
+            if ($this->string($row, 'code') === $code) {
+                return $row;
+            }
         }
 
-        return $texts;
+        return [];
     }
 
     /**

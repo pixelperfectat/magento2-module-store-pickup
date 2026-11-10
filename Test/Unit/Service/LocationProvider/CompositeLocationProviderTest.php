@@ -128,4 +128,37 @@ class CompositeLocationProviderTest extends TestCase
 
         $this->assertSame(['main' => $main, 'only' => $only], $composite->getLocations(1));
     }
+
+    public function testNumericCodeDuplicateAcrossProvidersIsDetected(): void
+    {
+        $first = $this->location('7', 'First');
+        $composite = new CompositeLocationProvider($this->logger, [
+            'config' => $this->provider([7 => $first]),
+            'extra' => $this->provider([7 => $this->location('7', 'Second')]),
+        ]);
+        $this->logger->expects($this->once())->method('warning')->with(
+            'Pickup location code "7" from provider "extra" is already taken; ignored.'
+        );
+
+        $locations = array_values($composite->getLocations(1));
+
+        $this->assertSame([$first], $locations);
+        $this->assertSame('7', $locations[0]->getCode());
+        $this->assertSame($first, $composite->getLocation('7', 1));
+    }
+
+    public function testCodesAtEqualSortOrderCompareAsStrings(): void
+    {
+        $composite = new CompositeLocationProvider($this->logger, [
+            'config' => $this->provider([9 => $this->location('9', 'Nine')]),
+            'extra' => $this->provider([10 => $this->location('10', 'Ten')]),
+        ]);
+
+        $codes = array_map(
+            static fn (PickupLocationInterface $location): string => $location->getCode(),
+            array_values($composite->getLocations(1))
+        );
+
+        $this->assertSame(['10', '9'], $codes);
+    }
 }
