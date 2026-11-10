@@ -95,6 +95,11 @@
             <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
         </arguments>
     </type>
+    <type name="PixelPerfect\StorePickup\Observer\RestrictPaymentForPickup">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
     <type name="PixelPerfect\StorePickup\Observer\SyncPickupAddressOnCheckout">
         <arguments>
             <argument name="checkoutSession" xsi:type="object">Magento\Checkout\Model\Session\Proxy</argument>

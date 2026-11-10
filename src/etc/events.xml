@@ -5,4 +5,8 @@
         <observer name="pp_store_pickup_order_placement"
                   instance="PixelPerfect\StorePickup\Observer\RunPickupOrderPlacementProcessors"/>
     </event>
+    <event name="payment_method_is_active">
+        <observer name="pp_store_pickup_restrict_payment"
+                  instance="PixelPerfect\StorePickup\Observer\RestrictPaymentForPickup"/>
+    </event>
 </config>

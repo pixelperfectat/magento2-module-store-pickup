@@ -120,6 +120,25 @@
                     </depends>
                 </field>
             </group>
+            <group id="payment" translate="label comment" type="text" sortOrder="20"
+                   showInDefault="1" showInWebsite="1" showInStore="0">
+                <label>Payment Methods for Pickup</label>
+                <comment>Restrict payment methods depending on whether the order is shipped by store pickup.</comment>
+                <field id="pickup_only_methods" translate="label comment" type="multiselect" sortOrder="10"
+                       showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
+                    <label>Payment Methods Only for Pickup</label>
+                    <comment>These methods are offered for pickup orders only, for example pay at the store.</comment>
+                    <source_model>Magento\Payment\Model\Config\Source\Allmethods</source_model>
+                    <can_be_empty>1</can_be_empty>
+                </field>
+                <field id="hidden_for_pickup" translate="label comment" type="multiselect" sortOrder="20"
+                       showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
+                    <label>Payment Methods Hidden for Pickup</label>
+                    <comment>These methods are not offered for pickup orders.</comment>
+                    <source_model>Magento\Payment\Model\Config\Source\Allmethods</source_model>
+                    <can_be_empty>1</can_be_empty>
+                </field>
+            </group>
         </section>
     </system>
 </config>
