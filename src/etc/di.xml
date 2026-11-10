@@ -37,6 +37,32 @@
         </arguments>
     </type>
 
+    <type name="PixelPerfect\StorePickup\Plugin\Quote\Api\CartRepositoryInterface\PickupLocationCodeExtension">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Plugin\Sales\Api\OrderRepositoryInterface\PickupLocationCodeExtension">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="Magento\Quote\Api\CartRepositoryInterface">
+        <plugin name="pp_store_pickup_location_code"
+                type="PixelPerfect\StorePickup\Plugin\Quote\Api\CartRepositoryInterface\PickupLocationCodeExtension"/>
+    </type>
+    <type name="Magento\Sales\Api\OrderRepositoryInterface">
+        <plugin name="pp_store_pickup_location_code"
+                type="PixelPerfect\StorePickup\Plugin\Sales\Api\OrderRepositoryInterface\PickupLocationCodeExtension"/>
+    </type>
+    <virtualType name="Magento\Sales\Model\ResourceModel\Order\Grid" type="Magento\Sales\Model\ResourceModel\Grid">
+        <arguments>
+            <argument name="columns" xsi:type="array">
+                <item name="pp_pickup_location_code" xsi:type="string">sales_order.pp_pickup_location_code</item>
+            </argument>
+        </arguments>
+    </virtualType>
+
     <virtualType name="PixelPerfect\StorePickup\Logger\Handler"
                  type="Magento\Framework\Logger\Handler\Base">
         <arguments>

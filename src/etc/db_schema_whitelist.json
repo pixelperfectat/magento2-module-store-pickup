@@ -1,0 +1,22 @@
+{
+    "quote": {
+        "column": {
+            "pp_pickup_location_code": true,
+            "pp_pickup_address_snapshot": true
+        }
+    },
+    "sales_order": {
+        "column": {
+            "pp_pickup_location_code": true,
+            "pp_pickup_notified_at": true
+        }
+    },
+    "sales_order_grid": {
+        "column": {
+            "pp_pickup_location_code": true
+        },
+        "index": {
+            "SALES_ORDER_GRID_PP_PICKUP_LOCATION_CODE": true
+        }
+    }
+}

@@ -4,6 +4,7 @@
         "directories": [
             "src/Api",
             "src/Model",
+            "src/Plugin",
             "src/Service"
         ]
     },
