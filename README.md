@@ -23,8 +23,11 @@ bin/magento setup:upgrade
 bin/magento cache:flush
 ```
 
-`setup:upgrade` adds the `pp_pickup_location_code` and `pp_pickup_notified_at` columns and the order status
-"Ready for Pickup".
+`setup:upgrade` adds these columns and the order status "Ready for Pickup":
+
+- `quote.pp_pickup_location_code` and `quote.pp_pickup_address_snapshot`;
+- `sales_order.pp_pickup_location_code` and `sales_order.pp_pickup_notified_at`;
+- `sales_order_grid.pp_pickup_location_code`, with an index, for the order grid column.
 
 ## Configuration
 
@@ -127,6 +130,10 @@ One click runs the whole step:
 3. sends the translatable "Ready for Pickup" email (customer and guest template, optional copy);
 4. adds a customer-visible history comment, written in the locale of the order's store;
 5. records `pp_pickup_notified_at`.
+
+The storefront shows the status label "Ready for Pickup" in English in every store view, because Magento shows the
+stored label of an order status without translating it. To show it in the store's language, set a label per store
+view in the admin under Stores > Order Status > Ready for Pickup (saved in `sales_order_status_label`).
 
 A prepaid order, that is an invoiced one, becomes `complete` when the shipment is created, and keeps that Magento
 status; the email, the comment and the timestamp still follow. If the email cannot be sent the order is still
