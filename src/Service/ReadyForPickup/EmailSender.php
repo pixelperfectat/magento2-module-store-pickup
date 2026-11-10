@@ -11,6 +11,7 @@ use Magento\Sales\Api\Data\OrderInterface;
 use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Email\Container\IdentityInterface;
 use Magento\Sales\Model\Order\Email\Container\Template;
+use Magento\Sales\Model\Order\Email\SenderBuilder;
 use Magento\Sales\Model\Order\Email\SenderBuilderFactory;
 use Magento\Store\Model\ScopeInterface;
 use PixelPerfect\StorePickup\Api\Data\PickupLocationInterface;
@@ -59,6 +60,41 @@ class EmailSender implements ReadyForPickupEmailSenderInterface
             return false;
         }
 
+        try {
+            $sender = $this->createSender($order, $location);
+            $sender->send();
+        } catch (\Throwable $e) {
+            $this->logger->error(
+                'Ready-for-pickup email for order ' . $order->getIncrementId() . ' failed: ' . $e->getMessage(),
+                ['exception' => $e]
+            );
+
+            return false;
+        }
+        try {
+            if ($this->identityContainer->getCopyMethod() === 'copy') {
+                $sender->sendCopyTo();
+            }
+        } catch (\Throwable $e) {
+            $this->logger->error(
+                'Ready-for-pickup email copy for order ' . $order->getIncrementId() . ' failed: '
+                . $e->getMessage(),
+                ['exception' => $e]
+            );
+        }
+
+        return true;
+    }
+
+    /**
+     * Fill the template and identity containers for the order and create the sender.
+     *
+     * @param Order $order
+     * @param PickupLocationInterface $location
+     * @return SenderBuilder
+     */
+    private function createSender(Order $order, PickupLocationInterface $location): SenderBuilder
+    {
         $store = $order->getStore();
         $storeId = (int) $store->getId();
         $this->identityContainer->setStore($store);
@@ -83,33 +119,10 @@ class EmailSender implements ReadyForPickupEmailSenderInterface
         $this->identityContainer->setCustomerName($order->getCustomerName());
         $this->identityContainer->setCustomerEmail($order->getCustomerEmail());
 
-        $sender = $this->senderBuilderFactory->create([
+        return $this->senderBuilderFactory->create([
             'templateContainer' => $this->templateContainer,
             'identityContainer' => $this->identityContainer,
         ]);
-        try {
-            $sender->send();
-        } catch (\Throwable $e) {
-            $this->logger->error(
-                'Ready-for-pickup email for order ' . $order->getIncrementId() . ' failed: ' . $e->getMessage(),
-                ['exception' => $e]
-            );
-
-            return false;
-        }
-        if ($this->identityContainer->getCopyMethod() === 'copy') {
-            try {
-                $sender->sendCopyTo();
-            } catch (\Throwable $e) {
-                $this->logger->error(
-                    'Ready-for-pickup email copy for order ' . $order->getIncrementId() . ' failed: '
-                    . $e->getMessage(),
-                    ['exception' => $e]
-                );
-            }
-        }
-
-        return true;
     }
 
     /**

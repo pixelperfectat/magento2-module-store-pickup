@@ -224,6 +224,48 @@ class EmailSenderTest extends TestCase
         self::assertTrue($this->sender->send($this->order(), $this->location));
     }
 
+    public function testErrorWhilePreparingTheEmailIsLoggedAndReturnsFalse(): void
+    {
+        $order = $this->createMock(Order::class);
+        $order->method('getStore')->willReturn($this->store);
+        $order->method('getIncrementId')->willReturn('000000042');
+        $order->method('getFrontendStatusLabel')->willThrowException(new \RuntimeException('no status label'));
+        $this->senderBuilder->expects($this->never())->method('send');
+        $this->logger->expects($this->once())->method('error')
+            ->with('Ready-for-pickup email for order 000000042 failed: no status label', $this->arrayHasKey('exception'));
+
+        self::assertFalse($this->sender->send($order, $this->location));
+    }
+
+    public function testErrorWhileCreatingTheSenderIsLoggedAndReturnsFalse(): void
+    {
+        $factory = $this->createMock(SenderBuilderFactory::class);
+        $factory->method('create')->willThrowException(new \TypeError('builder broken'));
+        $sender = new EmailSender(
+            $this->template,
+            $this->identity,
+            $factory,
+            new DataObjectFactory(),
+            $this->createMock(ListsInterface::class),
+            $this->createMock(ScopeConfigInterface::class),
+            $this->logger
+        );
+        $this->logger->expects($this->once())->method('error')
+            ->with('Ready-for-pickup email for order 000000042 failed: builder broken', $this->arrayHasKey('exception'));
+
+        self::assertFalse($sender->send($this->order(), $this->location));
+    }
+
+    public function testErrorWhileReadingTheCopyMethodIsLoggedAndStillCountsAsSent(): void
+    {
+        $this->identity->method('getCopyMethod')->willThrowException(new \RuntimeException('no config'));
+        $this->senderBuilder->expects($this->once())->method('send');
+        $this->logger->expects($this->once())->method('error')
+            ->with('Ready-for-pickup email copy for order 000000042 failed: no config', $this->arrayHasKey('exception'));
+
+        self::assertTrue($this->sender->send($this->order(), $this->location));
+    }
+
     public function testOrderThatIsNoOrderModelIsNotSent(): void
     {
         $order = $this->createMock(OrderInterface::class);
