@@ -2,10 +2,9 @@
 
 namespace PixelPerfect\StorePickup\Plugin\Quote\Api\CartRepositoryInterface;
 
-use Magento\Framework\Api\ExtensionAttributesFactory;
-use Magento\Framework\DataObject;
 use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Quote\Api\Data\CartInterface;
+use PixelPerfect\StorePickup\Service\ExtensionAttribute\PickupLocationCodeMirror;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -13,16 +12,14 @@ use Psr\Log\LoggerInterface;
  */
 class PickupLocationCodeExtension
 {
-    public const KEY = 'pp_pickup_location_code';
-
     /**
      * Constructor.
      *
-     * @param ExtensionAttributesFactory $extensionAttributesFactory
+     * @param PickupLocationCodeMirror $mirror
      * @param LoggerInterface $logger
      */
     public function __construct(
-        private readonly ExtensionAttributesFactory $extensionAttributesFactory,
+        private readonly PickupLocationCodeMirror $mirror,
         private readonly LoggerInterface $logger
     ) {
     }
@@ -36,7 +33,7 @@ class PickupLocationCodeExtension
      */
     public function afterGet(CartRepositoryInterface $subject, CartInterface $result): CartInterface
     {
-        return $this->mirror($result);
+        return $this->expose($result);
     }
 
     /**
@@ -48,7 +45,7 @@ class PickupLocationCodeExtension
      */
     public function afterGetActive(CartRepositoryInterface $subject, CartInterface $result): CartInterface
     {
-        return $this->mirror($result);
+        return $this->expose($result);
     }
 
     /**
@@ -60,7 +57,7 @@ class PickupLocationCodeExtension
      */
     public function afterGetForCustomer(CartRepositoryInterface $subject, CartInterface $result): CartInterface
     {
-        return $this->mirror($result);
+        return $this->expose($result);
     }
 
     /**
@@ -72,7 +69,7 @@ class PickupLocationCodeExtension
      */
     public function afterGetActiveForCustomer(CartRepositoryInterface $subject, CartInterface $result): CartInterface
     {
-        return $this->mirror($result);
+        return $this->expose($result);
     }
 
     /**
@@ -85,12 +82,7 @@ class PickupLocationCodeExtension
     public function beforeSave(CartRepositoryInterface $subject, CartInterface $quote): array
     {
         try {
-            $extension = $quote->getExtensionAttributes();
-            // @phpstan-ignore-next-line the extension class is generated
-            $code = $extension !== null ? $extension->getPpPickupLocationCode() : null;
-            if ($code !== null && $quote instanceof DataObject) {
-                $quote->setData(self::KEY, $code);
-            }
+            $this->mirror->writeBack($quote);
         } catch (\Throwable $e) {
             $this->logger->error('Pickup location code could not be written to the cart: ' . $e->getMessage());
         }
@@ -104,18 +96,10 @@ class PickupLocationCodeExtension
      * @param CartInterface $cart
      * @return CartInterface
      */
-    private function mirror(CartInterface $cart): CartInterface
+    private function expose(CartInterface $cart): CartInterface
     {
         try {
-            if (!$cart instanceof DataObject) {
-                return $cart;
-            }
-            $extension = $cart->getExtensionAttributes()
-                ?? $this->extensionAttributesFactory->create(CartInterface::class);
-            // @phpstan-ignore-next-line the extension class is generated
-            $extension->setPpPickupLocationCode($cart->getData(self::KEY));
-            // @phpstan-ignore-next-line the extension class is generated
-            $cart->setExtensionAttributes($extension);
+            $this->mirror->mirror($cart, CartInterface::class);
         } catch (\Throwable $e) {
             $this->logger->error('Pickup location code could not be read onto the cart: ' . $e->getMessage());
         }

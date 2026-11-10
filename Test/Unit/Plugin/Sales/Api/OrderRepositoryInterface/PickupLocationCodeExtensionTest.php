@@ -10,6 +10,7 @@ use Magento\Sales\Model\Order;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use PixelPerfect\StorePickup\Plugin\Sales\Api\OrderRepositoryInterface\PickupLocationCodeExtension;
+use PixelPerfect\StorePickup\Service\ExtensionAttribute\PickupLocationCodeMirror;
 use PixelPerfect\StorePickup\Test\Stub\ExtensionAttributes;
 use Psr\Log\LoggerInterface;
 
@@ -29,7 +30,7 @@ class PickupLocationCodeExtensionTest extends TestCase
         $factory->method('create')->willReturnCallback(static fn () => new ExtensionAttributes());
         $this->logger = $this->createMock(LoggerInterface::class);
         $this->subject = $this->createMock(OrderRepositoryInterface::class);
-        $this->plugin = new PickupLocationCodeExtension($factory, $this->logger);
+        $this->plugin = new PickupLocationCodeExtension(new PickupLocationCodeMirror($factory), $this->logger);
     }
 
     /**
@@ -133,9 +134,79 @@ class PickupLocationCodeExtensionTest extends TestCase
             ->onlyMethods(['getExtensionAttributes'])
             ->getMock();
         $order->method('getExtensionAttributes')->willThrowException(new \RuntimeException('boom'));
-        $this->logger->expects($this->exactly(2))->method('error');
+        $this->logger->expects($this->exactly(2))->method('error')->withConsecutive(
+            ['Pickup location code could not be read onto the order: boom'],
+            ['Pickup location code could not be written to the order: boom']
+        );
 
         $this->assertSame($order, $this->plugin->afterGet($this->subject, $order));
         $this->assertSame([$order], $this->plugin->beforeSave($this->subject, $order));
+    }
+
+    public function testNewerColumnValueSurvivesAStaleMirroredAttribute(): void
+    {
+        $order = $this->order('main');
+        $this->plugin->afterGet($this->subject, $order);
+        $order->setData('pp_pickup_location_code', 'second');
+
+        $this->plugin->beforeSave($this->subject, $order);
+
+        $this->assertSame('second', $order->getData('pp_pickup_location_code'));
+    }
+
+    public function testAttributeChangedAfterLoadWinsOverTheColumn(): void
+    {
+        $order = $this->order('main');
+        $this->plugin->afterGet($this->subject, $order);
+        $this->ext($order)?->setPpPickupLocationCode('second');
+
+        $this->plugin->beforeSave($this->subject, $order);
+
+        $this->assertSame('second', $order->getData('pp_pickup_location_code'));
+    }
+
+    public function testAttributeSetToNullAfterLoadClearsTheCode(): void
+    {
+        $order = $this->order('main');
+        $this->plugin->afterGet($this->subject, $order);
+        $this->ext($order)?->setPpPickupLocationCode(null);
+
+        $this->plugin->beforeSave($this->subject, $order);
+
+        $this->assertNull($order->getData('pp_pickup_location_code'));
+    }
+
+    public function testNeverMirroredNonNullAttributeIsWrittenBack(): void
+    {
+        $ext = new ExtensionAttributes();
+        $ext->setPpPickupLocationCode('x');
+        $order = $this->order(null, $ext);
+
+        $this->plugin->beforeSave($this->subject, $order);
+
+        $this->assertSame('x', $order->getData('pp_pickup_location_code'));
+    }
+
+    public function testAfterGetListFailureIsLoggedAndTheResultReturned(): void
+    {
+        $list = $this->createMock(OrderSearchResultInterface::class);
+        $list->method('getItems')->willThrowException(new \RuntimeException('boom'));
+        $this->logger->expects($this->once())->method('error')
+            ->with('Pickup location code could not be read onto the orders: boom');
+
+        $this->assertSame($list, $this->plugin->afterGetList($this->subject, $list));
+    }
+
+    public function testSecondSaveKeepsANewerColumnValueAfterAWriteBack(): void
+    {
+        $order = $this->order('main');
+        $this->plugin->afterGet($this->subject, $order);
+        $this->ext($order)?->setPpPickupLocationCode('second');
+        $this->plugin->beforeSave($this->subject, $order);
+        $order->setData('pp_pickup_location_code', 'third');
+
+        $this->plugin->beforeSave($this->subject, $order);
+
+        $this->assertSame('third', $order->getData('pp_pickup_location_code'));
     }
 }

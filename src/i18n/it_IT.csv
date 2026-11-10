@@ -32,3 +32,4 @@
 "Pickup location code ""%1"" must match ^[a-z0-9_]{1,64}$.","Il codice ""%1"" del punto di ritiro deve corrispondere a ^[a-z0-9_]{1,64}$."
 "Pickup location code ""%1"" is used twice.","Il codice ""%1"" del punto di ritiro è usato due volte."
 "Pickup location ""%1"" needs a name, street, postcode, city and country.","Il punto di ritiro ""%1"" richiede nome, via, CAP, città e paese."
+"Pickup Location","Punto di ritiro"

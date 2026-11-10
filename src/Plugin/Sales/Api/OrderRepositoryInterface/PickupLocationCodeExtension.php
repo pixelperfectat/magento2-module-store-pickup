@@ -2,11 +2,10 @@
 
 namespace PixelPerfect\StorePickup\Plugin\Sales\Api\OrderRepositoryInterface;
 
-use Magento\Framework\Api\ExtensionAttributesFactory;
-use Magento\Framework\DataObject;
 use Magento\Sales\Api\Data\OrderInterface;
 use Magento\Sales\Api\Data\OrderSearchResultInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
+use PixelPerfect\StorePickup\Service\ExtensionAttribute\PickupLocationCodeMirror;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -14,16 +13,14 @@ use Psr\Log\LoggerInterface;
  */
 class PickupLocationCodeExtension
 {
-    public const KEY = 'pp_pickup_location_code';
-
     /**
      * Constructor.
      *
-     * @param ExtensionAttributesFactory $extensionAttributesFactory
+     * @param PickupLocationCodeMirror $mirror
      * @param LoggerInterface $logger
      */
     public function __construct(
-        private readonly ExtensionAttributesFactory $extensionAttributesFactory,
+        private readonly PickupLocationCodeMirror $mirror,
         private readonly LoggerInterface $logger
     ) {
     }
@@ -37,7 +34,7 @@ class PickupLocationCodeExtension
      */
     public function afterGet(OrderRepositoryInterface $subject, OrderInterface $result): OrderInterface
     {
-        return $this->mirror($result);
+        return $this->expose($result);
     }
 
     /**
@@ -51,8 +48,12 @@ class PickupLocationCodeExtension
         OrderRepositoryInterface $subject,
         OrderSearchResultInterface $result
     ): OrderSearchResultInterface {
-        foreach ($result->getItems() as $order) {
-            $this->mirror($order);
+        try {
+            foreach ($result->getItems() as $order) {
+                $this->mirror->mirror($order, OrderInterface::class);
+            }
+        } catch (\Throwable $e) {
+            $this->logger->error('Pickup location code could not be read onto the orders: ' . $e->getMessage());
         }
 
         return $result;
@@ -68,12 +69,7 @@ class PickupLocationCodeExtension
     public function beforeSave(OrderRepositoryInterface $subject, OrderInterface $order): array
     {
         try {
-            $extension = $order->getExtensionAttributes();
-            // @phpstan-ignore-next-line the extension class is generated
-            $code = $extension !== null ? $extension->getPpPickupLocationCode() : null;
-            if ($code !== null && $order instanceof DataObject) {
-                $order->setData(self::KEY, $code);
-            }
+            $this->mirror->writeBack($order);
         } catch (\Throwable $e) {
             $this->logger->error('Pickup location code could not be written to the order: ' . $e->getMessage());
         }
@@ -87,18 +83,10 @@ class PickupLocationCodeExtension
      * @param OrderInterface $order
      * @return OrderInterface
      */
-    private function mirror(OrderInterface $order): OrderInterface
+    private function expose(OrderInterface $order): OrderInterface
     {
         try {
-            if (!$order instanceof DataObject) {
-                return $order;
-            }
-            $extension = $order->getExtensionAttributes()
-                ?? $this->extensionAttributesFactory->create(OrderInterface::class);
-            // @phpstan-ignore-next-line the extension class is generated
-            $extension->setPpPickupLocationCode($order->getData(self::KEY));
-            // @phpstan-ignore-next-line the extension class is generated
-            $order->setExtensionAttributes($extension);
+            $this->mirror->mirror($order, OrderInterface::class);
         } catch (\Throwable $e) {
             $this->logger->error('Pickup location code could not be read onto the order: ' . $e->getMessage());
         }
