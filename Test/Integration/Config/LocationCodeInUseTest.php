@@ -158,6 +158,43 @@ class LocationCodeInUseTest extends TestCase
         $this->backend(['_1' => $this->row('second')])->beforeSave();
     }
 
+    #[Config('carriers/pppickup/active', '1', 'store', 'default')]
+    #[Config('carriers/pppickup/locations', self::LOCATIONS, 'store', 'default')]
+    #[Config('carriers/pppickup/locations', self::LOCATIONS)]
+    #[DataFixture(ProductFixture::class, as: 'product')]
+    #[DataFixture(GuestCart::class, as: 'cart')]
+    #[DataFixture(AddProductToCart::class, ['cart_id' => '$cart.id$', 'product_id' => '$product.id$'])]
+    #[DataFixture(SetBillingAddress::class, ['cart_id' => '$cart.id$', 'address' => self::ADDRESS])]
+    #[DataFixture(SetShippingAddress::class, ['cart_id' => '$cart.id$', 'address' => self::ADDRESS])]
+    #[DataFixture(
+        SetDeliveryMethod::class,
+        ['cart_id' => '$cart.id$', 'carrier_code' => 'pppickup', 'method_code' => 'main']
+    )]
+    #[DataFixture(SetGuestEmail::class, ['cart_id' => '$cart.id$', 'email' => 'jane.doe@example.com'])]
+    #[DataFixture(SetPaymentMethod::class, ['cart_id' => '$cart.id$', 'method' => 'checkmo'])]
+    public function testStringValueFromTheCommandLineIsGuardedToo(): void
+    {
+        $this->placeOrder();
+
+        // config:set hands the backend model the JSON text, not an array
+        $json = '[{"code":"second","name":"Second Store","street":"2 Example Street","postcode":"8010",'
+            . '"city":"Graz","country_id":"AT","price":"","sort_order":"20","active":"1"}]';
+        $backend = Bootstrap::getObjectManager()->create(Locations::class);
+        $backend->setPath('carriers/pppickup/locations');
+        $backend->setScope('default');
+        $backend->setValue($json);
+
+        try {
+            $backend->beforeSave();
+            self::fail('A string value that drops a code an open order uses must be rejected.');
+        } catch (LocalizedException $exception) {
+            self::assertStringContainsString(
+                'Pickup location "main" is used by open carts or orders.',
+                $exception->getMessage()
+            );
+        }
+    }
+
     #[Config('carriers/pppickup/locations', self::LOCATIONS, 'store', 'default')]
     #[DataFixture(GuestCart::class, as: 'cart')]
     #[DataFixture(ProductFixture::class, as: 'product')]

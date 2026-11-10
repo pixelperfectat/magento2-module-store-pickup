@@ -11,6 +11,7 @@ use Magento\Framework\Model\Context;
 use Magento\Framework\Model\ResourceModel\AbstractResource;
 use Magento\Framework\Registry;
 use Magento\Framework\Serialize\Serializer\Json;
+use Magento\Framework\Serialize\SerializerInterface;
 use PixelPerfect\StorePickup\Api\Service\PickupMethodResolverInterface;
 
 /**
@@ -18,6 +19,8 @@ use PixelPerfect\StorePickup\Api\Service\PickupMethodResolverInterface;
  */
 class LocationTexts extends ArraySerialized
 {
+    use DecodesStringValue;
+
     /**
      * Constructor.
      *
@@ -26,6 +29,7 @@ class LocationTexts extends ArraySerialized
      * @param ScopeConfigInterface $config
      * @param TypeListInterface $cacheTypeList
      * @param PickupMethodResolverInterface $resolver
+     * @param SerializerInterface $rowSerializer
      * @param AbstractResource|null $resource
      * @param AbstractDb|null $resourceCollection
      * @param array<string, mixed> $data
@@ -37,6 +41,7 @@ class LocationTexts extends ArraySerialized
         ScopeConfigInterface $config,
         TypeListInterface $cacheTypeList,
         private readonly PickupMethodResolverInterface $resolver,
+        private readonly SerializerInterface $rowSerializer,
         ?AbstractResource $resource = null,
         ?AbstractDb $resourceCollection = null,
         array $data = [],
@@ -55,13 +60,14 @@ class LocationTexts extends ArraySerialized
     }
 
     /**
-     * Reject rows whose code does not match the location code pattern.
+     * Decode a string value, then reject rows whose code does not match the location code pattern.
      *
      * @return $this
      * @throws LocalizedException
      */
     public function beforeSave()
     {
+        $this->decodeStringValue($this->rowSerializer);
         $rows = $this->getValue();
         if (is_array($rows)) {
             foreach ($rows as $key => $row) {

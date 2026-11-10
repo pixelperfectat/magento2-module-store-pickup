@@ -21,6 +21,8 @@ use PixelPerfect\StorePickup\Api\Service\PickupMethodResolverInterface;
  */
 class Locations extends ArraySerialized
 {
+    use DecodesStringValue;
+
     /**
      * Columns that every location row must fill.
      */
@@ -69,13 +71,14 @@ class Locations extends ArraySerialized
     }
 
     /**
-     * Reject rows with an invalid or repeated code, with missing address data, or without a code that is still in use.
+     * Decode a string value, then reject rows with an invalid or repeated code, with missing address data, or without a code that is still in use.
      *
      * @return $this
      * @throws LocalizedException
      */
     public function beforeSave()
     {
+        $this->decodeStringValue($this->oldValueSerializer);
         $rows = $this->getValue();
         if (is_array($rows)) {
             $this->validate($rows);

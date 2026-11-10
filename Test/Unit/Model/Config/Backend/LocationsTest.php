@@ -66,7 +66,7 @@ class LocationsTest extends TestCase
         $tail = [null, null, [], new Json()];
         $backend = $class === Locations::class
             ? new Locations(...$common, ...[$usage, new Json(), $storeManager], ...$tail)
-            : new LocationTexts(...$common, ...$tail);
+            : new LocationTexts(...$common, ...[new Json()], ...$tail);
         $backend->setValue($value);
 
         return $backend;
@@ -174,13 +174,111 @@ class LocationsTest extends TestCase
         );
     }
 
-    public function testNonArrayValueIsLeftAlone(): void
+    public function testEmptyStringBecomesNoRows(): void
     {
         $backend = $this->backend(Locations::class, '');
 
         $backend->beforeSave();
 
-        $this->assertSame('', $backend->getValue());
+        $this->assertSame('[]', $backend->getValue());
+    }
+
+    public function testNullBecomesNoRows(): void
+    {
+        $backend = $this->backend(Locations::class, null);
+
+        $backend->beforeSave();
+
+        $this->assertSame('[]', $backend->getValue());
+    }
+
+    public function testJsonStringIsValidatedAndSaved(): void
+    {
+        $json = $this->stored([$this->row('main')]);
+        $backend = $this->backend(Locations::class, $json);
+
+        $backend->beforeSave();
+
+        $this->assertSame($json, $backend->getValue());
+    }
+
+    public function testJsonStringWithInvalidCodeIsRejected(): void
+    {
+        $backend = $this->backend(Locations::class, $this->stored([$this->row('Bad Code')]));
+
+        $this->expectException(LocalizedException::class);
+        $backend->beforeSave();
+    }
+
+    public function testInvalidJsonIsRejected(): void
+    {
+        $backend = $this->backend(Locations::class, '{not json');
+
+        $this->expectException(LocalizedException::class);
+        $this->expectExceptionMessage('The pickup location rows are not valid JSON.');
+        $backend->beforeSave();
+    }
+
+    public function testJsonScalarIsRejected(): void
+    {
+        $backend = $this->backend(Locations::class, '"text"');
+
+        $this->expectException(LocalizedException::class);
+        $this->expectExceptionMessage('The pickup location rows must be a JSON list of rows.');
+        $backend->beforeSave();
+    }
+
+    public function testJsonStringThatRemovesACodeInUseIsRejected(): void
+    {
+        $old = $this->stored([$this->row('main'), $this->row('second')]);
+        $backend = $this->backend(Locations::class, $this->stored([$this->row('second')]), $old, ['main']);
+
+        $this->expectException(LocalizedException::class);
+        $this->expectExceptionMessage('Pickup location "main" is used by open carts or orders.');
+        $backend->beforeSave();
+    }
+
+    public function testEmptyStringThatRemovesACodeInUseIsRejected(): void
+    {
+        $backend = $this->backend(Locations::class, '', $this->stored([$this->row('main')]), ['main']);
+
+        $this->expectException(LocalizedException::class);
+        $backend->beforeSave();
+    }
+
+    public function testTextsJsonStringIsValidatedAndSaved(): void
+    {
+        $json = $this->stored([['code' => 'main', 'name' => 'Negozio']]);
+        $backend = $this->backend(LocationTexts::class, $json);
+
+        $backend->beforeSave();
+
+        $this->assertSame($json, $backend->getValue());
+    }
+
+    public function testTextsJsonStringWithInvalidCodeIsRejected(): void
+    {
+        $backend = $this->backend(LocationTexts::class, $this->stored([['code' => 'Bad Code']]));
+
+        $this->expectException(LocalizedException::class);
+        $backend->beforeSave();
+    }
+
+    public function testTextsInvalidJsonIsRejected(): void
+    {
+        $backend = $this->backend(LocationTexts::class, '{not json');
+
+        $this->expectException(LocalizedException::class);
+        $backend->beforeSave();
+    }
+
+    public function testTextsEmptyStringPasses(): void
+    {
+        $backend = $this->backend(LocationTexts::class, '');
+
+        $backend->beforeSave();
+
+        $this->assertSame('[]', $backend->getValue());
     }
 
     /**
