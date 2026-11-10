@@ -21,6 +21,8 @@
                 type="PixelPerfect\StorePickup\Service\ReadyForPickup\ShipmentArgumentsBuilder"/>
     <preference for="PixelPerfect\StorePickup\Api\Service\ReadyForPickupEmailSenderInterface"
                 type="PixelPerfect\StorePickup\Service\ReadyForPickup\EmailSender"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\ReadyEmailFailureDetectorInterface"
+                type="PixelPerfect\StorePickup\Service\ReadyForPickup\EmailFailureDetector"/>
 
     <type name="PixelPerfect\StorePickup\Service\LocationProvider\CompositeLocationProvider">
         <arguments>
