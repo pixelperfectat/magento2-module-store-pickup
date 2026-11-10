@@ -36,6 +36,12 @@ class StorePickupTest extends TestCase
 
     private StorePickup $carrier;
 
+    /** @var LoggerInterface&MockObject */
+    private $parentLogger;
+
+    /** @var LoggerInterface&MockObject */
+    private $pickupLogger;
+
     private float $defaultPrice = 0.0;
 
     protected function setUp(): void
@@ -45,6 +51,8 @@ class StorePickupTest extends TestCase
         $this->config->method('getDefaultPrice')->willReturnCallback(fn (): float => $this->defaultPrice);
         $this->locations = $this->createMock(LocationProviderInterface::class);
         $this->checker = $this->createMock(AvailabilityCheckerInterface::class);
+        $this->parentLogger = $this->createMock(LoggerInterface::class);
+        $this->pickupLogger = $this->createMock(LoggerInterface::class);
 
         $resultFactory = $this->createMock(ResultFactory::class);
         $resultFactory->method('create')->willReturnCallback(
@@ -60,13 +68,13 @@ class StorePickupTest extends TestCase
         $this->carrier = new StorePickup(
             $this->createMock(ScopeConfigInterface::class),
             $this->createMock(ErrorFactory::class),
-            $this->createMock(LoggerInterface::class),
+            $this->parentLogger,
             $resultFactory,
             $methodFactory,
             $this->locations,
             $this->checker,
             $this->config,
-            $this->createMock(LoggerInterface::class)
+            $this->pickupLogger
         );
     }
 
@@ -201,5 +209,27 @@ class StorePickupTest extends TestCase
         $rates = $this->rates($this->carrier->collectRates($this->request()));
 
         $this->assertSame('7', $rates[0]['method']);
+    }
+
+    public function testFailingProviderMakesCollectRatesReturnFalseAndLogOnce(): void
+    {
+        $this->config->method('isActive')->willReturn(true);
+        $this->locations->method('getLocations')->willThrowException(new \RuntimeException('boom'));
+        $this->pickupLogger->expects($this->once())->method('error')->with(
+            $this->stringContains('boom'),
+            $this->arrayHasKey('exception')
+        );
+        $this->parentLogger->expects($this->never())->method($this->anything());
+
+        $this->assertFalse($this->carrier->collectRates($this->request()));
+    }
+
+    public function testFailingProviderMakesAllowedMethodsEmptyAndLogs(): void
+    {
+        $this->locations->method('getLocations')->willThrowException(new \RuntimeException('boom'));
+        $this->pickupLogger->expects($this->once())->method('error')->with($this->stringContains('boom'));
+        $this->parentLogger->expects($this->never())->method($this->anything());
+
+        $this->assertSame([], $this->carrier->getAllowedMethods());
     }
 }

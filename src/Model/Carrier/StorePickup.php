@@ -67,33 +67,42 @@ class StorePickup extends AbstractCarrier implements CarrierInterface
      */
     public function collectRates(RateRequest $request)
     {
-        $storeId = (int) $request->getStoreId();
-        if (!$this->pickupConfig->isActive($storeId)) {
+        try {
+            $storeId = (int) $request->getStoreId();
+            if (!$this->pickupConfig->isActive($storeId)) {
+                return false;
+            }
+
+            $result = $this->rateResultFactory->create();
+            $title = $this->pickupConfig->getTitle($storeId);
+            $defaultPrice = $this->pickupConfig->getDefaultPrice($storeId);
+            $free = (bool) $request->getFreeShipping();
+
+            foreach ($this->locationProvider->getLocations($storeId) as $location) {
+                if (!$this->availabilityChecker->isAvailable($location, $request)) {
+                    continue;
+                }
+                $price = $free ? 0.0 : ($location->getPrice() ?? $defaultPrice);
+
+                $method = $this->rateMethodFactory->create();
+                $method->setCarrier($this->_code);
+                $method->setCarrierTitle($title);
+                $method->setMethod($location->getCode());
+                $method->setMethodTitle($location->getName());
+                $method->setPrice($price);
+                $method->setCost($price);
+                $result->append($method);
+            }
+
+            return $result;
+        } catch (\Throwable $e) {
+            $this->pickupLogger->error(
+                'Could not collect the pickup rates: ' . $e->getMessage(),
+                ['exception' => $e]
+            );
+
             return false;
         }
-
-        $result = $this->rateResultFactory->create();
-        $title = $this->pickupConfig->getTitle($storeId);
-        $defaultPrice = $this->pickupConfig->getDefaultPrice($storeId);
-        $free = (bool) $request->getFreeShipping();
-
-        foreach ($this->locationProvider->getLocations($storeId) as $location) {
-            if (!$this->availabilityChecker->isAvailable($location, $request)) {
-                continue;
-            }
-            $price = $free ? 0.0 : ($location->getPrice() ?? $defaultPrice);
-
-            $method = $this->rateMethodFactory->create();
-            $method->setCarrier($this->_code);
-            $method->setCarrierTitle($title);
-            $method->setMethod($location->getCode());
-            $method->setMethodTitle($location->getName());
-            $method->setPrice($price);
-            $method->setCost($price);
-            $result->append($method);
-        }
-
-        return $result;
     }
 
     /**
