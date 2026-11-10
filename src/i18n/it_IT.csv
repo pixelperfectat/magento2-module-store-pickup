@@ -59,3 +59,5 @@
 "Order %1 was marked as ready for pickup, but the email could not be sent.","L'ordine %1 è stato segnato come pronto per il ritiro, ma non è stato possibile inviare l'e-mail."
 "Order %1: %2","Ordine %1: %2"
 "%1 order(s) were marked as ready for pickup.","%1 ordine/i segnato/i come pronto/i per il ritiro."
+"Order %1 could not be marked as ready for pickup. See the store pickup log.","Non è stato possibile segnare l'ordine %1 come pronto per il ritiro. Dettagli nel log del ritiro in negozio."
+"The order could not be found.","L'ordine non è stato trovato."

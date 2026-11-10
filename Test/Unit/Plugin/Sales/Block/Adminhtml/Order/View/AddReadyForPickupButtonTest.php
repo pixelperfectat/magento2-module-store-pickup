@@ -10,6 +10,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use PixelPerfect\StorePickup\Api\Service\ReadyForPickupServiceInterface;
 use PixelPerfect\StorePickup\Plugin\Sales\Block\Adminhtml\Order\View\AddReadyForPickupButton;
+use Psr\Log\LoggerInterface;
 
 class AddReadyForPickupButtonTest extends TestCase
 {
@@ -25,6 +26,9 @@ class AddReadyForPickupButtonTest extends TestCase
     /** @var LayoutInterface&MockObject */
     private $layout;
 
+    /** @var LoggerInterface&MockObject */
+    private $logger;
+
     private AddReadyForPickupButton $plugin;
 
     protected function setUp(): void
@@ -37,7 +41,8 @@ class AddReadyForPickupButtonTest extends TestCase
             ->getMock();
         $this->block->method('escapeJs')->willReturnCallback(static fn ($value) => 'js(' . $value . ')');
         $this->layout = $this->createMock(LayoutInterface::class);
-        $this->plugin = new AddReadyForPickupButton($this->service, $this->authorization);
+        $this->logger = $this->createMock(LoggerInterface::class);
+        $this->plugin = new AddReadyForPickupButton($this->service, $this->authorization, $this->logger);
     }
 
     /**
@@ -112,7 +117,12 @@ class AddReadyForPickupButtonTest extends TestCase
     public function testUsesTheConfiguredAclResource(): void
     {
         $this->order();
-        $plugin = new AddReadyForPickupButton($this->service, $this->authorization, 'Vendor_Module::custom');
+        $plugin = new AddReadyForPickupButton(
+            $this->service,
+            $this->authorization,
+            $this->logger,
+            'Vendor_Module::custom'
+        );
         $this->authorization->expects($this->atLeastOnce())->method('isAllowed')
             ->with('Vendor_Module::custom')
             ->willReturn(true);
@@ -120,5 +130,34 @@ class AddReadyForPickupButtonTest extends TestCase
         $this->block->expects($this->once())->method('addButton');
 
         $this->assertNull($plugin->beforeSetLayout($this->block, $this->layout));
+    }
+
+    public function testAnEligibilityErrorIsLoggedAndAddsNoButton(): void
+    {
+        $this->order();
+        $error = new \RuntimeException('broken');
+        $this->authorization->method('isAllowed')->willReturn(true);
+        $this->service->method('isEligible')->willThrowException($error);
+        $this->block->expects($this->never())->method('addButton');
+        $this->logger->expects($this->once())->method('error')->with(
+            'The ready-for-pickup button could not be added to order 42.',
+            ['exception' => $error]
+        );
+
+        $this->assertNull($this->plugin->beforeSetLayout($this->block, $this->layout));
+    }
+
+    public function testAnAuthorizationErrorIsLoggedAndAddsNoButton(): void
+    {
+        $this->order();
+        $error = new \TypeError('broken');
+        $this->authorization->method('isAllowed')->willThrowException($error);
+        $this->block->expects($this->never())->method('addButton');
+        $this->logger->expects($this->once())->method('error')->with(
+            'The ready-for-pickup button could not be added to order 42.',
+            ['exception' => $error]
+        );
+
+        $this->assertNull($this->plugin->beforeSetLayout($this->block, $this->layout));
     }
 }

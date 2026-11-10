@@ -13,6 +13,7 @@ use PHPUnit\Framework\TestCase;
 use PixelPerfect\StorePickup\Api\Service\ReadyEmailFailureDetectorInterface;
 use PixelPerfect\StorePickup\Api\Service\ReadyForPickupServiceInterface;
 use PixelPerfect\StorePickup\Controller\Adminhtml\Order\MassReadyForPickup;
+use Psr\Log\LoggerInterface;
 
 class MassReadyForPickupTest extends TestCase
 {
@@ -30,6 +31,9 @@ class MassReadyForPickupTest extends TestCase
     /** @var Collection&MockObject */
     private $collection;
 
+    /** @var LoggerInterface&MockObject */
+    private $logger;
+
     private MassReadyForPickup $controller;
 
     protected function setUp(): void
@@ -41,13 +45,15 @@ class MassReadyForPickupTest extends TestCase
         $collectionFactory = $this->createMock(CollectionFactory::class);
         $collectionFactory->method('create')->willReturn($this->collection);
         $this->filter = $this->createMock(Filter::class);
+        $this->logger = $this->createMock(LoggerInterface::class);
         $this->controller = new MassReadyForPickup(
             $context,
             $this->filter,
             $collectionFactory,
             $this->service,
             $this->orderRepository([7 => '000000007', 8 => '000000008', 9 => '000000009']),
-            $this->detector
+            $this->detector,
+            $this->logger
         );
     }
 
@@ -139,6 +145,40 @@ class MassReadyForPickupTest extends TestCase
 
         $this->assertSame($this->redirect, $this->controller->execute());
         $this->assertSame([['error', 'An item needs to be selected. Select and try again.']], $this->messages);
+        $this->assertSame(['sales/order/index', []], $this->redirectedTo);
+    }
+
+    public function testUnexpectedErrorIsLoggedAndTheBatchContinues(): void
+    {
+        $this->select([7 => '000000007', 8 => '000000008', 9 => '000000009']);
+        $error = new \RuntimeException('Deadlock found');
+        $processed = [];
+        $this->service->expects($this->exactly(3))->method('execute')->willReturnCallback(
+            static function (int $orderId) use (&$processed, $error): void {
+                $processed[] = $orderId;
+                if ($orderId === 8) {
+                    throw $error;
+                }
+            }
+        );
+        $this->detector->method('hasFailed')->willReturnCallback(
+            static fn ($order) => $order->getEntityId() === 9
+        );
+        $this->logger->expects($this->once())->method('error')->with(
+            'Order 000000008 could not be marked as ready for pickup.',
+            ['exception' => $error]
+        );
+
+        $this->assertSame($this->redirect, $this->controller->execute());
+        $this->assertSame([7, 8, 9], $processed);
+        $this->assertSame(
+            [
+                ['error', 'Order 000000008 could not be marked as ready for pickup. See the store pickup log.'],
+                ['warning', 'Order 000000009 was marked as ready for pickup, but the email could not be sent.'],
+                ['success', '2 order(s) were marked as ready for pickup.'],
+            ],
+            $this->messages
+        );
         $this->assertSame(['sales/order/index', []], $this->redirectedTo);
     }
 }

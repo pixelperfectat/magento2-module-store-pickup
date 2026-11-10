@@ -59,3 +59,5 @@
 "Order %1 was marked as ready for pickup, but the email could not be sent.","Bestellung %1 wurde als abholbereit markiert, aber die E-Mail konnte nicht gesendet werden."
 "Order %1: %2","Bestellung %1: %2"
 "%1 order(s) were marked as ready for pickup.","%1 Bestellung(en) wurde(n) als abholbereit markiert."
+"Order %1 could not be marked as ready for pickup. See the store pickup log.","Bestellung %1 konnte nicht als abholbereit markiert werden. Details stehen im Store-Pickup-Log."
+"The order could not be found.","Die Bestellung wurde nicht gefunden."

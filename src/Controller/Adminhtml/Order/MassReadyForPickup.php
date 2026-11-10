@@ -12,6 +12,7 @@ use Magento\Sales\Model\ResourceModel\Order\CollectionFactory;
 use Magento\Ui\Component\MassAction\Filter;
 use PixelPerfect\StorePickup\Api\Service\ReadyEmailFailureDetectorInterface;
 use PixelPerfect\StorePickup\Api\Service\ReadyForPickupServiceInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Marks the orders selected in the admin order grid as ready for pickup, one by one.
@@ -29,6 +30,7 @@ class MassReadyForPickup extends Action implements HttpPostActionInterface
      * @param ReadyForPickupServiceInterface $readyForPickup
      * @param OrderRepositoryInterface $orderRepository
      * @param ReadyEmailFailureDetectorInterface $emailFailureDetector
+     * @param LoggerInterface $logger
      */
     public function __construct(
         Context $context,
@@ -36,13 +38,14 @@ class MassReadyForPickup extends Action implements HttpPostActionInterface
         private readonly CollectionFactory $collectionFactory,
         private readonly ReadyForPickupServiceInterface $readyForPickup,
         private readonly OrderRepositoryInterface $orderRepository,
-        private readonly ReadyEmailFailureDetectorInterface $emailFailureDetector
+        private readonly ReadyEmailFailureDetectorInterface $emailFailureDetector,
+        private readonly LoggerInterface $logger
     ) {
         parent::__construct($context);
     }
 
     /**
-     * Runs the ready-for-pickup step per selected order; one failing order does not stop the others.
+     * Runs the ready-for-pickup step per selected order; one failing order, for any reason, does not stop the others.
      *
      * @return Redirect
      */
@@ -75,6 +78,17 @@ class MassReadyForPickup extends Action implements HttpPostActionInterface
             } catch (LocalizedException $e) {
                 $this->messageManager->addErrorMessage(
                     __('Order %1: %2', $selected->getIncrementId(), $e->getMessage())
+                );
+            } catch (\Throwable $e) {
+                $this->logger->error(
+                    sprintf('Order %s could not be marked as ready for pickup.', $selected->getIncrementId()),
+                    ['exception' => $e]
+                );
+                $this->messageManager->addErrorMessage(
+                    __(
+                        'Order %1 could not be marked as ready for pickup. See the store pickup log.',
+                        $selected->getIncrementId()
+                    )
                 );
             }
         }
