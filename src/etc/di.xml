@@ -3,6 +3,8 @@
         xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
     <preference for="PixelPerfect\StorePickup\Api\Service\ConfigInterface"
                 type="PixelPerfect\StorePickup\Service\Config"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\PickupMethodResolverInterface"
+                type="PixelPerfect\StorePickup\Service\PickupMethodResolver"/>
 
     <virtualType name="PixelPerfect\StorePickup\Logger\Handler"
                  type="Magento\Framework\Logger\Handler\Base">
