@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-17
+
 ### Added
 
 - Store pickup shipping carrier with one rate per pickup location, each with an optional price of its own.
@@ -22,3 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extension points for location providers, availability checks, order placement processors and shipment arguments.
 - A service contract to mark an order as ready for pickup from another module.
 - English, German and Italian translations.
+
+[Unreleased]: https://github.com/pixelperfectat/magento2-module-store-pickup/compare/0.1.0...HEAD
+[0.1.0]: https://github.com/pixelperfectat/magento2-module-store-pickup/releases/tag/0.1.0
