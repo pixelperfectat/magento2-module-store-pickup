@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
+    <table name="quote" resource="checkout">
+        <column xsi:type="varchar" name="pp_pickup_location_code" nullable="true" length="64"
+                comment="Store pickup location code"/>
+        <column xsi:type="text" name="pp_pickup_address_snapshot" nullable="true"
+                comment="Store pickup: address snapshot before the location address was applied"/>
+    </table>
+    <table name="sales_order" resource="sales">
+        <column xsi:type="varchar" name="pp_pickup_location_code" nullable="true" length="64"
+                comment="Store pickup location code"/>
+        <column xsi:type="datetime" name="pp_pickup_notified_at" nullable="true"
+                comment="Store pickup: ready-for-pickup notification time"/>
+    </table>
+    <table name="sales_order_grid" resource="sales">
+        <column xsi:type="varchar" name="pp_pickup_location_code" nullable="true" length="64"
+                comment="Store pickup location code"/>
+        <index referenceId="SALES_ORDER_GRID_PP_PICKUP_LOCATION_CODE" indexType="btree">
+            <column name="pp_pickup_location_code"/>
+        </index>
+    </table>
+</schema>

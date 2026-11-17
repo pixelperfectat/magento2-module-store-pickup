@@ -1,0 +1,163 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <preference for="PixelPerfect\StorePickup\Api\Service\ConfigInterface"
+                type="PixelPerfect\StorePickup\Service\Config"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\PickupMethodResolverInterface"
+                type="PixelPerfect\StorePickup\Service\PickupMethodResolver"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\LocationProviderInterface"
+                type="PixelPerfect\StorePickup\Service\LocationProvider\CompositeLocationProvider"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\AvailabilityCheckerInterface"
+                type="PixelPerfect\StorePickup\Service\Availability\CompositeAvailabilityChecker"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\PickupAddressApplierInterface"
+                type="PixelPerfect\StorePickup\Service\PickupAddressApplier"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\OrderPlacementProcessorInterface"
+                type="PixelPerfect\StorePickup\Service\OrderPlacement\CompositeOrderPlacementProcessor"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\LocationUsageInterface"
+                type="PixelPerfect\StorePickup\Service\LocationUsage"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\ReadyForPickupServiceInterface"
+                type="PixelPerfect\StorePickup\Service\ReadyForPickup\ReadyForPickupService"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\ShipmentArgumentsBuilderInterface"
+                type="PixelPerfect\StorePickup\Service\ReadyForPickup\ShipmentArgumentsBuilder"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\ReadyForPickupEmailSenderInterface"
+                type="PixelPerfect\StorePickup\Service\ReadyForPickup\EmailSender"/>
+    <preference for="PixelPerfect\StorePickup\Api\Service\ReadyEmailFailureDetectorInterface"
+                type="PixelPerfect\StorePickup\Service\ReadyForPickup\EmailFailureDetector"/>
+
+    <type name="PixelPerfect\StorePickup\Service\LocationProvider\CompositeLocationProvider">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+            <argument name="providers" xsi:type="array">
+                <item name="config" xsi:type="object" sortOrder="10">PixelPerfect\StorePickup\Service\LocationProvider\ConfigLocationProvider</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Service\LocationProvider\ConfigLocationProvider">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Service\Availability\CompositeAvailabilityChecker">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+            <argument name="checkers" xsi:type="array">
+                <item name="always" xsi:type="object" sortOrder="10">PixelPerfect\StorePickup\Service\Availability\AlwaysAvailable</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Service\OrderPlacement\CompositeOrderPlacementProcessor">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+            <argument name="processors" xsi:type="array"/>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Observer\RunPickupOrderPlacementProcessors">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Model\Carrier\StorePickup">
+        <arguments>
+            <argument name="pickupLogger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+
+    <type name="PixelPerfect\StorePickup\Plugin\Quote\Api\CartRepositoryInterface\PickupLocationCodeExtension">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Plugin\Sales\Api\OrderRepositoryInterface\PickupLocationCodeExtension">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="Magento\Quote\Api\CartRepositoryInterface">
+        <plugin name="pp_store_pickup_location_code"
+                type="PixelPerfect\StorePickup\Plugin\Quote\Api\CartRepositoryInterface\PickupLocationCodeExtension"/>
+    </type>
+    <type name="Magento\Sales\Api\OrderRepositoryInterface">
+        <plugin name="pp_store_pickup_location_code"
+                type="PixelPerfect\StorePickup\Plugin\Sales\Api\OrderRepositoryInterface\PickupLocationCodeExtension"/>
+    </type>
+    <type name="PixelPerfect\StorePickup\Service\PickupAddressApplier">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Plugin\Quote\Model\QuoteManagement\ApplyPickupAddressBeforeSubmit">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Plugin\Checkout\Model\ShippingInformationManagement\ApplyPickupAddressToShippingInformation">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Observer\RestrictPaymentForPickup">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Observer\SyncPickupAddressOnCheckout">
+        <arguments>
+            <argument name="checkoutSession" xsi:type="object">Magento\Checkout\Model\Session\Proxy</argument>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="Magento\Quote\Model\QuoteManagement">
+        <plugin name="pp_store_pickup_apply_address"
+                type="PixelPerfect\StorePickup\Plugin\Quote\Model\QuoteManagement\ApplyPickupAddressBeforeSubmit"/>
+    </type>
+    <type name="Magento\Checkout\Model\ShippingInformationManagement">
+        <plugin name="pp_store_pickup_apply_address"
+                type="PixelPerfect\StorePickup\Plugin\Checkout\Model\ShippingInformationManagement\ApplyPickupAddressToShippingInformation"/>
+    </type>
+    <virtualType name="Magento\Sales\Model\ResourceModel\Order\Grid" type="Magento\Sales\Model\ResourceModel\Grid">
+        <arguments>
+            <argument name="columns" xsi:type="array">
+                <item name="pp_pickup_location_code" xsi:type="string">sales_order.pp_pickup_location_code</item>
+            </argument>
+        </arguments>
+    </virtualType>
+
+    <type name="PixelPerfect\StorePickup\Controller\Adminhtml\Order\ReadyForPickup">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Controller\Adminhtml\Order\MassReadyForPickup">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Plugin\Sales\Block\Adminhtml\Order\View\AddReadyForPickupButton">
+        <arguments>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+    <type name="PixelPerfect\StorePickup\Service\ReadyForPickup\EmailSender">
+        <arguments>
+            <argument name="templateContainer" xsi:type="object" shared="false">Magento\Sales\Model\Order\Email\Container\Template</argument>
+            <argument name="identityContainer" xsi:type="object">PixelPerfect\StorePickup\Model\Order\Email\Container\ReadyForPickupIdentity</argument>
+            <argument name="logger" xsi:type="object">PixelPerfect\StorePickup\Logger</argument>
+        </arguments>
+    </type>
+
+    <virtualType name="PixelPerfect\StorePickup\Logger\Handler"
+                 type="Magento\Framework\Logger\Handler\Base">
+        <arguments>
+            <argument name="fileName" xsi:type="string">/var/log/store_pickup.log</argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="PixelPerfect\StorePickup\Logger"
+                 type="Magento\Framework\Logger\Monolog">
+        <arguments>
+            <argument name="name" xsi:type="string">store_pickup</argument>
+            <argument name="handlers" xsi:type="array">
+                <item name="system" xsi:type="object">PixelPerfect\StorePickup\Logger\Handler</item>
+            </argument>
+        </arguments>
+    </virtualType>
+</config>
